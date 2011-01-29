@@ -128,7 +128,7 @@ more significant later.
 
 Some values are passed to the templates, but the more you use
 these the harder it could be to migrate later so you might want to
-look at a propper framework such as L<Catalyst>:
+look at a propper framework such as L<Catalyst> if you do want to use them:
 
   [% env.XX %] the raw environment variables
   [% params.get('field') %] params is a L<Hash::MultiValue>
