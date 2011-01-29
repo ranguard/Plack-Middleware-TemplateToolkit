@@ -3,7 +3,6 @@ use Plack::Test;
 use Plack::Builder;
 use Plack::Middleware::TemplateToolkit;
 use HTTP::Request;
-use URI;
 
 my $app = sub {
     return [ 200, [ 'Content-Type' => 'text/plain' ], ["DEFAULT"] ];

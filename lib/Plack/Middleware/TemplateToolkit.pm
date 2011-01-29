@@ -2,7 +2,7 @@ package Plack::Middleware::TemplateToolkit;
 use strict;
 use warnings;
 
-use parent qw( Plack::Middleware);
+use parent qw( Plack::Middleware );
 use Plack::Request;
 use Template;
 
