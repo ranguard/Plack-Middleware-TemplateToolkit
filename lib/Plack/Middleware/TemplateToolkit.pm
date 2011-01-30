@@ -1,20 +1,21 @@
-package Plack::Middleware::TemplateToolkit;
+package Plack::App::TemplateToolkit;
 use strict;
 use warnings;
 
-use parent qw( Plack::Middleware );
+use parent qw( Plack::Component );
 use Plack::Request;
 use Template;
 
 our $VERSION = 0.01;
 
-use Plack::Util::Accessor qw( root path extension content_type tt);
+use Plack::Util::Accessor qw( root dir_index path extension content_type tt);
 
 sub prepare_app {
     my ($self) = @_;
 
     die "No root supplied" unless $self->root();
-
+    
+    $self->dir_index('index.html') unless $self->dir_index();
     $self->content_type('text/html') unless $self->content_type();
 
     my $config = {
@@ -34,61 +35,74 @@ sub call {
     my $env  = shift;
 
     if ( my $res = $self->_handle_tt($env) ) {
+        use Data::Dumper;
+        warn Dumper($res);
         return $res;
     }
-    return $self->app->($env);
+    warn "HERE";
+
+    return [ 404, [ 'Content-Type' => 'text/html' ], [ '404 Not Found' ] ];
 }
 
 sub _handle_tt {
     my ( $self, $env ) = @_;
 
     my $path = $env->{PATH_INFO};
-
+    
+    if($path !~ /\.\w{1,6}$/) { 
+        # Use this regex instead of -e as $self->root can be a list ref
+        # TT will sort it out,
+        
+        # No file extension
+        $path .= $self->dir_index;
+    }
+    
     if ( my $extension = $self->extension() ) {
         return unless $path =~ /${extension}$/;
     }
 
-    if ( my $path_match = $self->path ) {
-        for ($path) {
-            my $matched
-                = 'CODE' eq ref $path_match
-                ? $path_match->($_)
-                : $_ =~ $path_match;
-            return unless $matched;
-        }
-    }
+    # Not needed because suggesting mount?
+    # if ( my $path_match = $self->path ) {
+    #     for ($path) {
+    #         my $matched
+    #             = 'CODE' eq ref $path_match
+    #             ? $path_match->($_)
+    #             : $_ =~ $path_match;
+    #         return unless $matched;
+    #     }
+    # }
 
     my $tt = $self->tt();
 
     my $req = Plack::Request->new($env);
 
     my $vars = {
-        env     => $env,
         params  => $req->query_parameters(),
-        cookies => $req->cookies(),            # probably too much?
     };
 
     my $content;
     $path =~ s{^/}{};    # Do not want to enable absolute paths
 
     if ( $tt->process( $path, $vars, \$content ) ) {
+        warn "200";
         return [
             '200', [ 'Content-Type' => $self->content_type() ],
             [$content]
         ];
     } else {
-        my $error = $tt->error;
+        my $error = $tt->error->as_string();
         if ( $error =~ /not found/ ) {
+            warn "TT 404";
             return [
                 '404',
                 [ 'Content-Type' => $self->content_type() ],
-                [ $tt->error() ]
+                [ $error ]
             ];
         } else {
             return [
                 '500',
                 [ 'Content-Type' => $self->content_type() ],
-                [ $tt->error() ]
+                [ $error ]
             ];
         }
     }
@@ -100,7 +114,7 @@ __END__
 
 =head1 NAME
 
-Plack::Middleware::TemplateToolkit - Basic Template Toolkit
+Plack::App::TemplateToolkit - Basic Template Toolkit
 
 =head1 SYNOPSIS
 
@@ -126,11 +140,10 @@ the content easier to manage. You probably only want to use this for the
 simpliest of sites, but it should be easy enough to migrate to something
 more significant later.
 
-Some values are passed to the templates, but the more you use
+Some the QUERY_STRING params are available to the templates, but the more you use
 these the harder it could be to migrate later so you might want to
 look at a propper framework such as L<Catalyst> if you do want to use them:
 
-  [% env.XX %] the raw environment variables
   [% params.get('field') %] params is a L<Hash::MultiValue>
 
 =head1 CONFIGURATIONS
@@ -152,6 +165,10 @@ Limit to only files with this extension.
 =item content_type
 
 Specify the Content-Type header you want returned, defaults to text/html
+
+=item dir_index
+
+Which file to use as a directory index
 
 =back
 
