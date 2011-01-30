@@ -1,7 +1,7 @@
 use Test::More;
 use Plack::Test;
 use Plack::Builder;
-use Plack::Middleware::TemplateToolkit;
+use Plack::App::TemplateToolkit;
 use HTTP::Request;
 
 my $app = sub {
@@ -27,7 +27,7 @@ foreach my $test (@tests) {
 
     pass( '---- ' . $test->{name} . ' ----' );
     my $handler = builder {
-        enable "Plack::Middleware::TemplateToolkit",
+        enable "Plack::App::TemplateToolkit",
             %{ $test->{options} };
         $app;
     };

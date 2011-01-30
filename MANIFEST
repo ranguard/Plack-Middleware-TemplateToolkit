@@ -1,4 +1,4 @@
-lib/Plack/Middleware/TemplateToolkit.pm
+lib/Plack/App/TemplateToolkit.pm
 MANIFEST
 Changes
 Makefile.PL
