@@ -172,6 +172,10 @@ templates - I would strongly recommend NOT using this.
 
 =back
 
+=head1 REPO
+
+https://github.com/ranguard/Plack-App-TemplateToolkit/
+
 =head1 AUTHOR
 
 Leo Lapworth
