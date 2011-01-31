@@ -1,5 +1,7 @@
 #!/usr/bin/env perl
 
+# This app.psgi is for testing slightly more complex configurations
+
 use strict;
 use warnings;
 use lib qw(lib);
