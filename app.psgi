@@ -7,23 +7,35 @@ use Plack::App::Cascade;
 use Plack::Builder;
 use Plack::Middleware::Static;
 use Plack::Middleware::ErrorDocument;
-use Plack::Middleware::TemplateToolkit;
+use Plack::App::TemplateToolkit;
 
 my $root = '/Users/leo/svn/london-pm/LPM/root';
 
-# Just to show you can build up layers, 
-my $another_app = sub {
-    return [ 200, [ 'Content-Type' => 'text/plain' ], ["You should not be here"] ];
+# Just to show that we can cascade to another bespoke app:
+my $restriced_app = sub {
+    my $env = shift;
+    if ( $env->{PATH_INFO} eq '/test_403' ) {
+        return [
+            403, [ 'Content-Type' => 'text/plain' ],
+            ["You should not be here"]
+        ];
+    } else {
+
+        # Let something else handle it
+        return [ 404, [], [] ];
+    }
 };
 
-my $tt_app = Plack::Middleware::TemplateToolkit->new(
-    root => $root,
-    extension => '.html'
+# Create our TT app, specifying the root and file extensions
+my $tt_app = Plack::App::TemplateToolkit->new(
+    root      => $root,      # required
+    extension => '.html',    # optional
 )->to_app;
 
+# Create a cascade
 my $cascade = Plack::App::Cascade->new;
 $cascade->add($tt_app);
-# $cascade->add($another_app);
+$cascade->add($restriced_app);
 
 my $app = builder {
     mount '/' => $cascade;
@@ -31,15 +43,28 @@ my $app = builder {
 
 $app = Plack::Middleware::ErrorDocument->wrap(
     $app,
-    404 => "/page_not_found.html",
+
+    # Does not work????
+    404        => "/page_not_found.html",
     subrequest => 1
 );
 
+# Binary files can be served directly
 $app = Plack::Middleware::Static->wrap(
     $app,
-    path => qr{[jpg|gif|jpeg|css|js|ico]$},
+    path => qr{[gif|png|jpg|swf|ico|mov|mp3|pdf]$},
     root => $root
 );
+
+# So can .js and .css files
+$app = Plack::Middleware::Static->wrap(
+    $app,
+    path => qr{[js|css]$},
+    root => $root
+);
+
+
+# Plack::Middleware::Deflater might be good to use here
 
 builder {
     $app;

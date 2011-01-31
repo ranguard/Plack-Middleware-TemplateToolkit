@@ -8,21 +8,23 @@ use Template;
 
 our $VERSION = 0.01;
 
-use Plack::Util::Accessor qw( root dir_index path extension content_type tt);
+use Plack::Util::Accessor
+    qw( root dir_index path extension content_type tt eval_perl);
 
 sub prepare_app {
     my ($self) = @_;
 
     die "No root supplied" unless $self->root();
-    
-    $self->dir_index('index.html') unless $self->dir_index();
+
+    $self->dir_index('index.html')   unless $self->dir_index();
     $self->content_type('text/html') unless $self->content_type();
+    $self->eval_perl(0)              unless $self->eval_perl();
 
     my $config = {
-        INCLUDE_PATH => $self->root(),    # or list ref
-        INTERPOLATE  => 1,                # expand "$var" in plain text
-        POST_CHOMP   => 1,                # cleanup whitespace
-        EVAL_PERL    => 1,                # evaluate Perl code blocks
+        INCLUDE_PATH => $self->root(),       # or list ref
+        INTERPOLATE  => 1,                   # expand "$var" in plain text
+        POST_CHOMP   => 1,                   # cleanup whitespace
+        EVAL_PERL    => $self->eval_perl(),    # evaluate Perl code blocks
     };
 
     # create Template object
@@ -35,28 +37,26 @@ sub call {
     my $env  = shift;
 
     if ( my $res = $self->_handle_tt($env) ) {
-        use Data::Dumper;
-        warn Dumper($res);
         return $res;
     }
-    warn "HERE";
 
-    return [ 404, [ 'Content-Type' => 'text/html' ], [ '404 Not Found' ] ];
+    return [ 404, [ 'Content-Type' => 'text/html' ], ['404 Not Found'] ];
 }
 
 sub _handle_tt {
     my ( $self, $env ) = @_;
 
     my $path = $env->{PATH_INFO};
-    
-    if($path !~ /\.\w{1,6}$/) { 
+
+    if ( $path !~ /\.\w{1,6}$/ ) {
+
         # Use this regex instead of -e as $self->root can be a list ref
         # TT will sort it out,
-        
+
         # No file extension
         $path .= $self->dir_index;
     }
-    
+
     if ( my $extension = $self->extension() ) {
         return unless $path =~ /${extension}$/;
     }
@@ -76,9 +76,7 @@ sub _handle_tt {
 
     my $req = Plack::Request->new($env);
 
-    my $vars = {
-        params  => $req->query_parameters(),
-    };
+    my $vars = { params => $req->query_parameters(), };
 
     my $content;
     $path =~ s{^/}{};    # Do not want to enable absolute paths
@@ -94,15 +92,13 @@ sub _handle_tt {
         if ( $error =~ /not found/ ) {
             warn "TT 404";
             return [
-                '404',
-                [ 'Content-Type' => $self->content_type() ],
-                [ $error ]
+                '404', [ 'Content-Type' => $self->content_type() ],
+                [$error]
             ];
         } else {
             return [
-                '500',
-                [ 'Content-Type' => $self->content_type() ],
-                [ $error ]
+                '500', [ 'Content-Type' => $self->content_type() ],
+                [$error]
             ];
         }
     }
@@ -134,13 +130,13 @@ Plack::App::TemplateToolkit - Basic Template Toolkit
 
 Plack::Middleware::TemplateToolkit - process files through L<Template> Toolkit (TT)
 
-The idea behind this module is to provide access to L<Template> Toolkit for
+The idea behind this module is to provide access to L<Template> Toolkit (TT) for
 content that is ALMOST static, but where having the power of TT can make
 the content easier to manage. You probably only want to use this for the
 simpliest of sites, but it should be easy enough to migrate to something
 more significant later.
 
-Some the QUERY_STRING params are available to the templates, but the more you use
+The QUERY_STRING params are available to the templates, but the more you use
 these the harder it could be to migrate later so you might want to
 look at a propper framework such as L<Catalyst> if you do want to use them:
 
@@ -152,11 +148,8 @@ look at a propper framework such as L<Catalyst> if you do want to use them:
 
 =item root
 
-Required, root where templates live, e.g. docroot.
-
-=item path
-
-Only apply to files in this folder.
+Required, root where templates live, e.g. docroot, this can be
+an array reference or a string.
 
 =item extension
 
@@ -168,7 +161,12 @@ Specify the Content-Type header you want returned, defaults to text/html
 
 =item dir_index
 
-Which file to use as a directory index
+Which file to use as a directory index, defaults to index.html
+
+=item eval_perl
+
+False by default, this option lets you run perl blocks in your
+templates - I would strongly recommend NOT using this.
 
 =back
 
