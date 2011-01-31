@@ -4,12 +4,22 @@ use Plack::Builder;
 use Plack::App::TemplateToolkit;
 use HTTP::Request;
 use Path::Class;
+use Plack::Middleware::ErrorDocument;
 
-my $root = dir( file($0)->dir(), 'root' )->stringify();
+use Cwd;
+
+my $dir = getcwd;
+
+my $root = dir( $dir, file($0)->dir(), 'root' )->stringify();
 
 my $app = Plack::App::TemplateToolkit->new(
     root => $root,    # Required
 )->to_app();
+
+$app = Plack::Middleware::ErrorDocument->wrap(
+    $app,
+    404        => "$root/page_not_found.html",
+);
 
 my @tests = (
     {   name           => 'Basic request',
@@ -22,6 +32,12 @@ my @tests = (
         request_method => 'GET',
         request_url    => '/',
         content        => 'Page value',
+        headers_out    => { 'Content-Type' => 'text/html', },
+    },
+    {   name           => '404request',
+        request_method => 'GET',
+        request_url    => '/boom.html',
+        content        => '404-page',
         headers_out    => { 'Content-Type' => 'text/html', },
     },
 

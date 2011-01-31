@@ -21,9 +21,9 @@ sub prepare_app {
     $self->eval_perl(0)              unless $self->eval_perl();
 
     my $config = {
-        INCLUDE_PATH => $self->root(),       # or list ref
-        INTERPOLATE  => 1,                   # expand "$var" in plain text
-        POST_CHOMP   => 1,                   # cleanup whitespace
+        INCLUDE_PATH => $self->root(),         # or list ref
+        INTERPOLATE  => 1,                     # expand "$var" in plain text
+        POST_CHOMP   => 1,                     # cleanup whitespace
         EVAL_PERL    => $self->eval_perl(),    # evaluate Perl code blocks
     };
 
@@ -57,10 +57,9 @@ sub _handle_tt {
     }
 
     if ( my $extension = $self->extension() ) {
-        warn "Returning";
         return 0 unless $path =~ /${extension}$/;
     }
-    
+
     my $tt = $self->tt();
 
     my $req = Plack::Request->new($env);
@@ -71,7 +70,6 @@ sub _handle_tt {
     $path =~ s{^/}{};    # Do not want to enable absolute paths
 
     if ( $tt->process( $path, $vars, \$content ) ) {
-        warn "200";
         return [
             '200', [ 'Content-Type' => $self->content_type() ],
             [$content]
@@ -79,7 +77,6 @@ sub _handle_tt {
     } else {
         my $error = $tt->error->as_string();
         if ( $error =~ /not found/ ) {
-            warn "TT 404";
             return [
                 '404', [ 'Content-Type' => $self->content_type() ],
                 [$error]

@@ -2,4 +2,6 @@ lib/Plack/App/TemplateToolkit.pm
 MANIFEST
 Changes
 Makefile.PL
+t/root/index.html
+t/root/page_not_found.html
 t/tt.t
