@@ -39,7 +39,6 @@ sub call {
     if ( my $res = $self->_handle_tt($env) ) {
         return $res;
     }
-
     return [ 404, [ 'Content-Type' => 'text/html' ], ['404 Not Found'] ];
 }
 
@@ -58,20 +57,10 @@ sub _handle_tt {
     }
 
     if ( my $extension = $self->extension() ) {
-        return unless $path =~ /${extension}$/;
+        warn "Returning";
+        return 0 unless $path =~ /${extension}$/;
     }
-
-    # Not needed because suggesting mount?
-    # if ( my $path_match = $self->path ) {
-    #     for ($path) {
-    #         my $matched
-    #             = 'CODE' eq ref $path_match
-    #             ? $path_match->($_)
-    #             : $_ =~ $path_match;
-    #         return unless $matched;
-    #     }
-    # }
-
+    
     my $tt = $self->tt();
 
     my $req = Plack::Request->new($env);
@@ -114,21 +103,34 @@ Plack::App::TemplateToolkit - Basic Template Toolkit
 
 =head1 SYNOPSIS
 
-  # in app.psgi
-  use Plack::Builder;
+    # in app.psgi
+    use Plack::Builder;
+    use Plack::App::TemplateToolkit;
 
-  builder {
-      enable "Plack::Middleware::TemplateToolkit",
-        root => '/path/to/templates/, # required
-        path => '/tt/',               # optional
-        extenstion => '.tt',          # optional
-        content_type => 'text/html',  # default, sets Content-Type header out
-      $app;
-  };
+    my $root = '/path/to/htdocs/';
+
+    my $tt_app = Plack::App::TemplateToolkit->new(
+        root => $root,    # Required
+    )->to_app();
+
+    return builder {
+
+        # Page to show when requested file is missing
+        enable "Plack::Middleware::ErrorDocument",
+            404 => "$root/page_not_found.html";
+
+        # These files can be served directly
+        enable "Plack::Middleware::Static",
+            path => qr{[gif|png|jpg|swf|ico|mov|mp3|pdf|js|css]$},
+            root => $root;
+
+        # Our application
+        $tt_app;
+    }
 
 =head1 DESCRIPTION
 
-Plack::Middleware::TemplateToolkit - process files through L<Template> Toolkit (TT)
+Plack::App::TemplateToolkit - process files through L<Template> Toolkit (TT)
 
 The idea behind this module is to provide access to L<Template> Toolkit (TT) for
 content that is ALMOST static, but where having the power of TT can make
@@ -141,6 +143,9 @@ these the harder it could be to migrate later so you might want to
 look at a propper framework such as L<Catalyst> if you do want to use them:
 
   [% params.get('field') %] params is a L<Hash::MultiValue>
+
+You can mix this application with other Plack::App applications which
+you will find on CPAN.
 
 =head1 CONFIGURATIONS
 

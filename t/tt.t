@@ -3,22 +3,26 @@ use Plack::Test;
 use Plack::Builder;
 use Plack::App::TemplateToolkit;
 use HTTP::Request;
+use Path::Class;
 
-my $app = sub {
-    return [ 200, [ 'Content-Type' => 'text/plain' ], ["DEFAULT"] ];
-};
+my $root = dir( file($0)->dir(), 'root' )->stringify();
+
+my $app = Plack::App::TemplateToolkit->new(
+    root => $root,    # Required
+)->to_app();
 
 my @tests = (
     {   name           => 'Basic request',
         request_method => 'GET',
-        request_url    => '/foo',
-        app            => $default_app,
-        options        => {
-            root => '/tmp/',
-        },
-        headers_out    => {
-            'Content-Type'      => 'text/html',
-        },
+        request_url    => '/index.html',
+        content        => 'Page value',
+        headers_out    => { 'Content-Type' => 'text/html', },
+    },
+    {   name           => 'Index request',
+        request_method => 'GET',
+        request_url    => '/',
+        content        => 'Page value',
+        headers_out    => { 'Content-Type' => 'text/html', },
     },
 
 );
@@ -27,8 +31,6 @@ foreach my $test (@tests) {
 
     pass( '---- ' . $test->{name} . ' ----' );
     my $handler = builder {
-        enable "Plack::App::TemplateToolkit",
-            %{ $test->{options} };
         $app;
     };
 
@@ -40,6 +42,11 @@ foreach my $test (@tests) {
         my $req = HTTP::Request->new( $test->{request_method},
             $test->{request_url} );
         my $res = $cb->($req);
+
+        if ( $test->{content} ) {
+            is( $res->content(), $test->{content},
+                "Got content as expected" );
+        }
 
         my $h = $res->headers();
 
