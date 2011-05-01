@@ -6,10 +6,10 @@ use parent qw( Plack::Component );
 use Plack::Request;
 use Template;
 
-our $VERSION = 0.01;
+our $VERSION = 0.02;
 
 use Plack::Util::Accessor
-    qw( root dir_index path extension content_type tt eval_perl);
+    qw( root dir_index path extension content_type tt eval_perl pre_process);
 
 sub prepare_app {
     my ($self) = @_;
@@ -26,6 +26,8 @@ sub prepare_app {
         POST_CHOMP   => 1,                     # cleanup whitespace
         EVAL_PERL    => $self->eval_perl(),    # evaluate Perl code blocks
     };
+
+    $config->{PRE_PROCESS} = $self->pre_process() if $self->pre_process();
 
     # create Template object
     $self->tt( Template->new($config) );
@@ -170,6 +172,11 @@ Which file to use as a directory index, defaults to index.html
 False by default, this option lets you run perl blocks in your
 templates - I would strongly recommend NOT using this.
 
+=item pre_process
+
+Optional, supply a file to pre process before serving each html file
+(passed to C<Template> as PRE_PROCESS)
+
 =back
 
 =head1 REPO
@@ -182,6 +189,6 @@ Leo Lapworth
 
 =head1 SEE ALSO
 
-L<Plack>
+L<Plack>, L<Template>
 
 =cut
