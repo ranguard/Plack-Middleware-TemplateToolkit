@@ -1,5 +1,8 @@
 # Change file for Plack::Middleware::TemplateToolkit
 
+0.03 Mon 2 May 2011
+    Accidental release - should have been version 0.02
+
 0.02 Sun 1 May 2011
     Add pre_process option
 
