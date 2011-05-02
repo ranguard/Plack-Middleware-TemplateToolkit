@@ -3,10 +3,8 @@ use strict;
 use warnings;
 
 use parent qw( Plack::Component );
-use Plack::Request;
-use Template;
-
-our $VERSION = 0.02;
+use Plack::Request 0.9901;
+use Template 2;
 
 use Plack::Util::Accessor
     qw( root dir_index path extension content_type tt eval_perl pre_process);
@@ -98,7 +96,7 @@ __END__
 
 =head1 NAME
 
-Plack::App::TemplateToolkit - Basic Template Toolkit
+Plack::App::TemplateToolkit - Basic Plack App Template Toolkit
 
 =head1 SYNOPSIS
 
@@ -178,14 +176,6 @@ Optional, supply a file to pre process before serving each html file
 (passed to C<Template> as PRE_PROCESS)
 
 =back
-
-=head1 REPO
-
-https://github.com/ranguard/Plack-App-TemplateToolkit/
-
-=head1 AUTHOR
-
-Leo Lapworth
 
 =head1 SEE ALSO
 
