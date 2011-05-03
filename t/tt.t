@@ -43,21 +43,41 @@ my @tests = (
 
 run_tests( $app, \@tests );
 
-my @pre_tests = (
-    {   name           => 'Basic request with pre_process',
-        request_method => 'GET',
-        request_url    => '/index.html',
-        content        => 'Included Page value',
-        headers_out    => { 'Content-Type' => 'text/html', },
-    },
-);
+{
+    my @pre_tests = (
+        {   name           => 'Basic request with pre_process',
+            request_method => 'GET',
+            request_url    => '/index.html',
+            content        => 'Included Page value',
+            headers_out    => { 'Content-Type' => 'text/html', },
+        },
+    );
 
-my $app_pre = Plack::App::TemplateToolkit->new(
-    root        => $root,       # Required
-    pre_process => 'pre.html'
-)->to_app();
+    my $app_pre = Plack::App::TemplateToolkit->new(
+        root        => $root,       # Required
+        pre_process => 'pre.html'
+    )->to_app();
 
-run_tests( $app_pre, \@pre_tests );
+    run_tests( $app_pre, \@pre_tests );
+}
+
+{
+    my @process_tests = (
+        {   name           => 'Basic request with pre_process',
+            request_method => 'GET',
+            request_url    => '/index.html',
+            content        => 'The Page value here',
+            headers_out    => { 'Content-Type' => 'text/html', },
+        },
+    );
+
+    my $app_pro = Plack::App::TemplateToolkit->new(
+        root        => $root,       # Required
+        process => 'process.html'
+    )->to_app();
+
+    run_tests( $app_pro, \@process_tests );
+}
 
 sub run_tests {
     my ( $app, $tests ) = @_;

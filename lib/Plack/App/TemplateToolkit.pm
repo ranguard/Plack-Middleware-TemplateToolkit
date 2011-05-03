@@ -7,7 +7,7 @@ use Plack::Request 0.9901;
 use Template 2;
 
 use Plack::Util::Accessor
-    qw( root dir_index path extension content_type tt eval_perl pre_process);
+    qw( root dir_index path extension content_type tt eval_perl pre_process process);
 
 sub prepare_app {
     my ($self) = @_;
@@ -26,6 +26,7 @@ sub prepare_app {
     };
 
     $config->{PRE_PROCESS} = $self->pre_process() if $self->pre_process();
+    $config->{PROCESS}     = $self->process()     if $self->process();
 
     # create Template object
     $self->tt( Template->new($config) );
