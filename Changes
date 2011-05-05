@@ -1,5 +1,8 @@
 # Change file for Plack::Middleware::TemplateToolkit
 
+0.05
+    Add POD for process option
+
 0.04 Tue 3 May 2011
     Add process option
 

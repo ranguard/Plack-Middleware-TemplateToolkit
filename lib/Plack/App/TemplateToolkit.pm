@@ -140,10 +140,12 @@ The QUERY_STRING params are available to the templates, but the more you use
 these the harder it could be to migrate later so you might want to
 look at a propper framework such as L<Catalyst> if you do want to use them:
 
-  [% params.get('field') %] params is a L<Hash::MultiValue>
+  [% params.get('field') %] 
 
-You can mix this application with other Plack::App applications which
-you will find on CPAN.
+params is a L<Hash::MultiValue>
+
+You can mix this application with other Plack::App applications and
+Plack::Middleware which you will find on CPAN.
 
 =head1 CONFIGURATIONS
 
@@ -170,11 +172,16 @@ Which file to use as a directory index, defaults to index.html
 
 False by default, this option lets you run perl blocks in your
 templates - I would strongly recommend NOT using this.
+(see C<Template> configuration EVAL_PERL)
 
 =item pre_process
 
 Optional, supply a file to pre process before serving each html file
-(passed to C<Template> as PRE_PROCESS)
+(see C<Template> configuration PRE_PROCESS)
+
+=item process
+
+Optional, supply a file to process (see C<Template> configuration PROCESS)
 
 =back
 
