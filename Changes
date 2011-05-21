@@ -2,6 +2,8 @@
 
 0.05
     Add POD for process option
+    Add interpolate and post_chomp options
+    interpolate now defaults to 0
 
 0.04 Tue 3 May 2011
     Add process option
