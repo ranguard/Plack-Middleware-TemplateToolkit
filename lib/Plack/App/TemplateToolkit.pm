@@ -142,9 +142,7 @@ The QUERY_STRING params are available to the templates, but the more you use
 these the harder it could be to migrate later so you might want to
 look at a propper framework such as L<Catalyst> if you do want to use them:
 
-  [% params.get('field') %] 
-
-params is a L<Hash::MultiValue>
+  [% params.get('field') %] params is a L<Hash::MultiValue>
 
 You can mix this application with other Plack::App applications and
 Plack::Middleware which you will find on CPAN.
@@ -185,7 +183,7 @@ Default to 0, this option lets you run perl blocks in your
 templates - I would strongly recommend NOT using this.
 (see C<Template> configuration EVAL_PERL)
 
-=item interpolate 
+=item interpolate
 
 Default to 0, see C<Template> configuration INTERPOLATE
 
