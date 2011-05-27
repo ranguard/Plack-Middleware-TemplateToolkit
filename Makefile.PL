@@ -7,7 +7,6 @@ requires 'Plack', 0.9901;
 requires 'Template', 2;
 
 build_requires 'Test::More', 0.88;
-test_requires 'Path::Class', 0.21; # TODO: remove dependency, 0.23 fails to install
 test_requires 'HTTP::Request', 5.824;
 
 resources

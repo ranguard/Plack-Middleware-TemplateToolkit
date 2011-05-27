@@ -3,14 +3,10 @@ use Plack::Test;
 use Plack::Builder;
 use Plack::App::TemplateToolkit;
 use HTTP::Request;
-use Path::Class;
+use File::Spec;
 use Plack::Middleware::ErrorDocument;
 
-use Cwd;
-
-my $dir = getcwd;
-
-my $root = dir( $dir, file($0)->dir(), 'root' )->stringify();
+my $root = File::Spec->catdir("t","root");
 
 my $app = Plack::App::TemplateToolkit->new(
     root => $root,    # Required

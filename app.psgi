@@ -6,15 +6,16 @@ use strict;
 use warnings;
 use lib qw(lib);
 
-use Path::Class;
 use Plack::App::Cascade;
 use Plack::App::TemplateToolkit;
 use Plack::App::URLMap;
 use Plack::Builder;
 use Plack::Middleware::ErrorDocument;
 use Plack::Middleware::Static;
+use File::Spec;
+use File::Basename;
 
-my $root = dir( file($0)->dir(), 't', 'root' )->stringify();
+my $root = Cwd::realpath( File::Spec->catdir( dirname($0), "t","root") );
 
 # Create our TT app, specifying the root and file extensions
 my $tt_app = Plack::App::TemplateToolkit->new(
