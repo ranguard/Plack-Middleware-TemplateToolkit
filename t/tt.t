@@ -34,7 +34,18 @@ my @tests = (
         content        => '404-page',
         headers_out    => { 'Content-Type' => 'text/html', },
     },
-
+    {   name           => 'MIME type by extension',
+        request_method => 'GET',
+        request_url    => '/style.css',
+        content        => 'body { font-style: sans-serif; }',
+        headers_out    => { 'Content-Type' => 'text/css', },
+    },
+    {   name           => 'No extension',
+        request_method => 'GET',
+        request_url    => '/noext',
+        content        => 'What am I?',
+        headers_out    => { 'Content-Type' => 'text/html', },
+    },
 );
 
 run_tests( $app, \@tests );
@@ -75,6 +86,24 @@ run_tests( $app, \@tests );
     run_tests( $app_pro, \@process_tests );
 }
 
+{
+    my @mime_tests = (
+        {   name           => 'Default MIME type',
+            request_method => 'GET',
+            request_url    => '/noext',
+            content        => 'What am I?',
+            headers_out    => { 'Content-Type' => 'text/plain', },
+        },
+    );
+
+    my $app = Plack::App::TemplateToolkit->new(
+        root         => $root, 
+        default_type => 'text/plain'
+    )->to_app();
+
+    run_tests( $app, \@mime_tests );
+}
+
 sub run_tests {
     my ( $app, $tests ) = @_;
 
@@ -85,9 +114,7 @@ sub run_tests {
             $app;
         };
 
-        test_psgi
-            app    => $handler,
-            client => sub {
+        test_psgi $handler, sub { 
             my $cb = shift;
 
             my $req = HTTP::Request->new( $test->{request_method},
