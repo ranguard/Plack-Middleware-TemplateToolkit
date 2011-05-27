@@ -1,6 +1,10 @@
 package Plack::App::TemplateToolkit;
+
 use strict;
 use warnings;
+use 5.008_001;
+
+our $VERSION = 0.05;
 
 use parent qw( Plack::Component );
 use Plack::Request 0.9901;
@@ -196,5 +200,10 @@ Defaults to 1, see C<Template> configuration POST_CHOMP
 =head1 SEE ALSO
 
 L<Plack>, L<Template>
+
+=head1 LICENSE
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
 
 =cut
