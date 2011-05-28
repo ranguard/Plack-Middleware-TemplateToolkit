@@ -23,7 +23,7 @@ builder {
 
     # These files can be served directly
     enable "Plack::Middleware::Static",
-        path => qr{[gif|png|jpg|swf|ico|mov|mp3|pdf|js|css]$},
+        path => qr{\.[gif|png|jpg|swf|ico|mov|mp3|pdf|js|css]$},
         root => $root;
 
     # Templates

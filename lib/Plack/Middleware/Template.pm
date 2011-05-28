@@ -4,6 +4,12 @@ use strict;
 use warnings;
 use 5.008_001;
 
+=head1 NAME
+
+Plack::Middleware::Template - Serve files with Template Toolkit and Plack
+
+=cut
+
 our $VERSION = 0.06;
 
 use parent 'Plack::Middleware';
@@ -12,29 +18,29 @@ use Plack::MIME;
 use Template 2;
 
 use Plack::Util::Accessor
-    qw( root interpolate post_chomp dir_index path extension content_type 
-        default_type tt eval_perl pre_process process pass_through);
+    qw(root interpolate post_chomp dir_index path extension content_type 
+       default_type tt eval_perl pre_process process pass_through);
 
 sub prepare_app {
     my ($self) = @_;
 
-    die "No root supplied" unless $self->root();
+    die "No root supplied" unless $self->root;
 
-    $self->dir_index('index.html')   unless $self->dir_index();
-    $self->default_type('text/html') unless $self->default_type();
-    $self->interpolate(0)            unless defined $self->interpolate();
-    $self->eval_perl(0)              unless defined $self->eval_perl();
-    $self->post_chomp(1)             unless defined $self->post_chomp();
+    $self->dir_index('index.html')   unless $self->dir_index;
+    $self->default_type('text/html') unless $self->default_type;
+    $self->interpolate(0)            unless defined $self->interpolate;
+    $self->eval_perl(0)              unless defined $self->eval_perl;
+    $self->post_chomp(1)             unless defined $self->post_chomp;
 
     my $config = {
-        INCLUDE_PATH => $self->root(),           # or list ref
-        INTERPOLATE  => $self->interpolate(),    # expand "$var" in plain text
-        POST_CHOMP   => $self->post_chomp(),     # cleanup whitespace
-        EVAL_PERL    => $self->eval_perl(),      # evaluate Perl code blocks
+        INCLUDE_PATH => $self->root,           # or list ref
+        INTERPOLATE  => $self->interpolate,    # expand "$var" in plain text
+        POST_CHOMP   => $self->post_chomp,     # cleanup whitespace
+        EVAL_PERL    => $self->eval_perl,      # evaluate Perl code blocks
     };
 
-    $config->{PRE_PROCESS} = $self->pre_process() if $self->pre_process();
-    $config->{PROCESS}     = $self->process()     if $self->process();
+    $config->{PRE_PROCESS} = $self->pre_process if $self->pre_process;
+    $config->{PROCESS}     = $self->process     if $self->process;
 
     # create Template object
     $self->tt( Template->new($config) );
@@ -75,7 +81,7 @@ sub _handle_template {
 
     my $tt = $self->tt;
 
-    my $vars = { params => $req->query_parameters(), };
+    my $vars = { params => $req->query_parameters, };
 
     my $content;
     $path =~ s{^/}{};    # Do not want to enable absolute paths
@@ -86,7 +92,7 @@ sub _handle_template {
 	} || $self->default_type;
         return [ 200, [ 'Content-Type' => $type ], [$content] ];
     } else {
-        my $error = $tt->error->as_string();
+        my $error = $tt->error->as_string;
 	my $type  = $self->content_type || $self->default_type;
         if ( $error =~ /not found/ ) {
             return [ 404, [ 'Content-Type' => $type ], [$error] ];
@@ -100,10 +106,6 @@ sub _handle_template {
 
 __END__
 
-=head1 NAME
-
-Plack::Middleware::Template - Serve Files with Template Toolkit and Plack
-
 =head1 SYNOPSIS
 
     use Plack::Builder;
@@ -116,15 +118,21 @@ Plack::Middleware::Template - Serve Files with Template Toolkit and Plack
 
         # These files can be served directly
         enable "Plack::Middleware::Static",
-            path => qr{[gif|png|jpg|swf|ico|mov|mp3|pdf|js|css]$},
+            path => qr{\.[gif|png|jpg|swf|ico|mov|mp3|pdf|js|css]$},
             root => $root;
 
 	enable "Plack::Middleware::Template",
-            path => '/',
             root => '/path/to/htdocs/', # required
+            pass_through => 1; # delegate missing templates to $app
 
         $app;
     }
+
+A minimal .psgi script that uses the middleware as stand-alone application:
+
+    use Plack::Middleware::Template;
+
+    Plack::Middleware::Template->new( root => "/path/to/docs" );
 
 =head1 DESCRIPTION
 
@@ -156,14 +164,16 @@ Plack::Middleware which you will find on CPAN.
 
 =item root
 
-Required, root where templates live, e.g. INCLUDE_PATH. This can be
-an array reference or a string.
+Required, root where templates live. This can be an array reference or a string
+(see L<Template> configuration INCLUDE_PATH)
 
 =item path
 
-Specifies an URL pattern or a callback to match with requests to serve templates for.
-See L<Plack::Middleware::Static> for further description. Unlike Plack::Middleware::Static
-this middleware uses C<'/'> as default path.
+Specifies an URL pattern or a callback to match with requests to serve
+templates for.  See L<Plack::Middleware::Static> for further description.
+Unlike Plack::Middleware::Static this middleware uses C<'/'> as default path.
+You may also consider using L<Plack::App::URLMap> and the C<mount> syntax from
+L<Plack::Builder> to map requests based on a path to this middleware.
 
 =item extension
 
@@ -214,6 +224,11 @@ Default to 0, see C<Template> configuration INTERPOLATE
 Defaults to 1, see C<Template> configuration POST_CHOMP
 
 =back
+
+=head1 TODO
+
+Error documents are not served as templates. You can use 
+L<Plack::Middleware::ErrorDocument> for customization.
 
 =head1 SEE ALSO
 

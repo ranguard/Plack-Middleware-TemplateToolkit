@@ -39,6 +39,24 @@ my @tests = (
 
 run_tests( $app, \@tests );
 
+{
+    my @tests = (
+    {   name           => '404request',
+        request_method => 'GET',
+        request_url    => '/boom.html',
+        content        => 'file error - boom.html: not found',
+        headers_out    => { 'Content-Type' => 'text/plain', },
+    },
+    );
+
+    my $app = builder {
+      enable "Plack::Middleware::Template", root => $root, default_type => "text/plain";
+      $err;
+    };
+
+    run_tests( $app, \@tests );
+}
+
 sub run_tests {
     my ( $app, $tests ) = @_;
 
