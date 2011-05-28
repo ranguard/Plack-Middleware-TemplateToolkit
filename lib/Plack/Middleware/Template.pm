@@ -40,7 +40,7 @@ sub prepare_app {
     $self->tt( Template->new($config) );
 }
 
-sub call {    # copied from Plack::Middleware::Static
+sub call {    # adopted from Plack::Middleware::Static
     my ($self, $env) = @_;
 
     my $res = $self->_handle_template($env);
@@ -67,8 +67,10 @@ sub _handle_template {
     $path = $req->path;
     $path .= $self->dir_index if $path =~ /\/$/;
 
-    if ( my $extension = $self->extension() ) {
-        return unless $path =~ /${extension}$/;
+    my $extension = $self->extension;
+    if ($extension and $path !~ /${extension}$/) {
+	my $type  = $self->content_type || $self->default_type;
+        return [ 404, [ 'Content-Type' => $type ], ["Not found"] ];
     }
 
     my $tt = $self->tt;
@@ -165,8 +167,8 @@ this middleware uses C<'/'> as default path.
 
 =item extension
 
-Limit to only files with this extension. Requests for other files will not result in
-a 404 response but passed to the next application.
+Limit to only files with this extension. Requests for other files will result in
+a 404 response or be passed to the next application if pass_through is set.
 
 =item content_type
 

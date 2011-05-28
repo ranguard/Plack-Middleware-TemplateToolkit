@@ -136,7 +136,7 @@ sub run_tests {
 
             is $h->as_string, '', 'No extra headers were set';
 
-            };
+        };
     }
 }
 
