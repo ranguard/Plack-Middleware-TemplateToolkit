@@ -1,4 +1,8 @@
-# Change file for Plack::Middleware::TemplateToolkit
+# Change file for Plack::Middleware::Template
+
+0.06
+    Migrated to Plack::App::TemplateToolkit
+    Add support of multiple MIME types
 
 0.05
     Add POD for process option

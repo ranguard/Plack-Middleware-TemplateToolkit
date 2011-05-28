@@ -1,14 +1,14 @@
 use Test::More;
 use Plack::Test;
 use Plack::Builder;
-use Plack::App::TemplateToolkit;
+use Plack::Middleware::Template;
 use HTTP::Request;
 use File::Spec;
 use Plack::Middleware::ErrorDocument;
 
 my $root = File::Spec->catdir("t","root");
 
-my $app = Plack::App::TemplateToolkit->new(
+my $app = Plack::Middleware::Template->new(
     root => $root,    # Required
 )->to_app();
 
@@ -60,7 +60,7 @@ run_tests( $app, \@tests );
         },
     );
 
-    my $app_pre = Plack::App::TemplateToolkit->new(
+    my $app_pre = Plack::Middleware::Template->new(
         root        => $root,       # Required
         pre_process => 'pre.html'
     )->to_app();
@@ -78,7 +78,7 @@ run_tests( $app, \@tests );
         },
     );
 
-    my $app_pro = Plack::App::TemplateToolkit->new(
+    my $app_pro = Plack::Middleware::Template->new(
         root        => $root,       # Required
         process => 'process.html'
     )->to_app();
@@ -96,7 +96,7 @@ run_tests( $app, \@tests );
         },
     );
 
-    my $app = Plack::App::TemplateToolkit->new(
+    my $app = Plack::Middleware::Template->new(
         root         => $root, 
         default_type => 'text/plain'
     )->to_app();

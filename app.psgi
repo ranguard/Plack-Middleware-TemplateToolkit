@@ -6,48 +6,32 @@ use strict;
 use warnings;
 use lib qw(lib);
 
-use Plack::App::Cascade;
-use Plack::App::TemplateToolkit;
-use Plack::App::URLMap;
 use Plack::Builder;
-use Plack::Middleware::ErrorDocument;
-use Plack::Middleware::Static;
 use File::Spec;
 use File::Basename;
+use Cwd;
 
 my $root = Cwd::realpath( File::Spec->catdir( dirname($0), "t","root") );
 
-# Create our TT app, specifying the root and file extensions
-my $tt_app = Plack::App::TemplateToolkit->new(
-    root      => $root,      # required
-    extension => '.html',    # optional
-)->to_app;
+my $app = sub { [ 500, ["Content-type"=>"text/plain"], ["Server hit the bottom"] ] };
 
-# Create a cascade
-my $cascade = Plack::App::Cascade->new;
+builder {
 
-# You could have your own app
-# $cascade->add($app);
-# Fall back to the TT app
-$cascade->add($tt_app);
+    # Page to show when requested file is missing
+    enable "Plack::Middleware::ErrorDocument",
+        404 => "$root/page_not_found.html";
 
-my $urlmap = Plack::App::URLMap->new;
-$urlmap->map( "/" => $cascade );
+    # These files can be served directly
+    enable "Plack::Middleware::Static",
+        path => qr{[gif|png|jpg|swf|ico|mov|mp3|pdf|js|css]$},
+        root => $root;
 
-my $app = $urlmap->to_app;
+    # Templates
+    enable "Plack::Middleware::Template",
+#	path      => '/',
+#    	extension => '.html', # optional
+    	root      => $root;
 
-$app = Plack::Middleware::ErrorDocument->wrap( $app,
-    404 => "$root/page_not_found.html", );
-
-# Binary files can be served directly
-$app = Plack::Middleware::Static->wrap(
-    $app,
-    path => qr{[gif|png|jpg|swf|ico|mov|mp3|pdf|js|css]$},
-    root => $root
-);
-
-# Plack::Middleware::Deflater might be good to use here
-
-return builder {
     $app;
 }
+
