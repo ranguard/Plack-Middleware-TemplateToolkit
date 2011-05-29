@@ -19,7 +19,7 @@ builder {
 
     # Page to show when requested file is missing
     enable "Plack::Middleware::ErrorDocument",
-        404 => "$root/page_not_found.html";
+        404 => "$root/404.html";
 
     # These files can be served directly
     enable "Plack::Middleware::Static",

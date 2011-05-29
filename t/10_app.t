@@ -18,7 +18,7 @@ my $app = Plack::Middleware::Template->new(
 )->to_app();
 
 $app = Plack::Middleware::ErrorDocument->wrap( $app,
-    404 => "$root/page_not_found.html", );
+    404 => "$root/404.html", );
 
 app_tests
     app => $app,
@@ -37,6 +37,7 @@ app_tests
         request => { GET => '/boom.html' },
         content => '404-page',
         headers => { 'Content-Type' => 'text/html', },
+        code    => 404
     },{
         name    => 'MIME type by extension',
         request => { GET => '/style.css' },
@@ -47,6 +48,12 @@ app_tests
         request => { GET => '/noext' },
         content => 'What am I?',
         headers => { 'Content-Type' => 'text/html', },
+    },{
+        name    => 'broken template',
+        request => { GET => '/broken.html' },
+        content => qr/parse error/,
+        headers => { 'Content-Type' => 'text/html', },
+        code    => 500
     }];
 
 app_tests

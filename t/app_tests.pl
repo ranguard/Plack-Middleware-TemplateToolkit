@@ -19,12 +19,20 @@ sub app_tests {
 
                 my $res = $cb->( HTTP::Request->new( %{$test->{request}} ) );
 
-                if ( $test->{content} ) {
-                    is( $res->content(), $test->{content},
+                if ( ref $test->{content} and ref $test->{content} eq 'Regexp' ) {
+                    like( $res->content, $test->{content},
+                        "Got content as expected" );
+                } elsif ( $test->{content} ) {
+                    is( $res->content, $test->{content},
                         "Got content as expected" );
                 }
 
-                my $h = $res->headers();
+                if ( $test->{code} ) {
+                    is( $res->code, $test->{code}, 
+                        "Got status code as expected" );
+                }
+
+                my $h = $res->headers;
 
                 while ( my ( $header, $value ) = each %{ $test->{headers} } )
                 {

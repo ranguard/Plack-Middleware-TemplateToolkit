@@ -1,5 +1,8 @@
 # Change file for Plack::Middleware::Template
 
+0.07
+    Support templates for error documents
+
 0.06
     Migrated to Plack::App::TemplateToolkit
     Add support of multiple MIME types

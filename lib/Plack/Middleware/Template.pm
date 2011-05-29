@@ -10,7 +10,7 @@ Plack::Middleware::Template - Serve files with Template Toolkit and Plack
 
 =cut
 
-our $VERSION = 0.06;
+our $VERSION = 0.07;
 
 use parent 'Plack::Middleware';
 use Plack::Request 0.994;
@@ -19,7 +19,7 @@ use Template 2;
 
 use Plack::Util::Accessor
     qw(root interpolate post_chomp dir_index path extension content_type 
-       default_type tt eval_perl pre_process process pass_through);
+       default_type tt eval_perl pre_process process pass_through 404);
 
 sub prepare_app {
     my ($self) = @_;
@@ -75,8 +75,8 @@ sub _handle_template {
 
     my $extension = $self->extension;
     if ($extension and $path !~ /${extension}$/) {
-	my $type  = $self->content_type || $self->default_type;
-        return [ 404, [ 'Content-Type' => $type ], ["Not found"] ];
+        # TODO: this needs test coverage and we may want to send another code
+        return $self->_error_document($req, "404", "text/plain", "Not found");
     }
 
     my $tt = $self->tt;
@@ -95,11 +95,38 @@ sub _handle_template {
         my $error = $tt->error->as_string;
 	my $type  = $self->content_type || $self->default_type;
         if ( $error =~ /not found/ ) {
-            return [ 404, [ 'Content-Type' => $type ], [$error] ];
+            return $self->_error_document($req, 404, $type, $error);
         } else {
+            return $self->_error_document($req, 500, $type, $error);
+        }
+    }
+}
+
+sub _error_document {
+    my ($self, $req, $code, $type, $error) = @_;
+
+    # Repeated code needs refactoring.
+    # will also mimics parts of Plack::Middleware::ErrorDocument.
+
+    if ( $self->{$code} ) {
+        my $tt = $self->tt;
+        my $path = $self->{$code};
+        my $vars = { params => $req->query_parameters, };
+        my $content;
+        if ( $tt->process( $path, $vars, \$content ) ) {
+	    my $type = $self->content_type || do { 
+                Plack::MIME->mime_type($1) if $path =~ /(\.\w{1,6})$/
+	    } || $self->default_type;
+            return [ $code, [ 'Content-Type' => $type ], [$content] ];
+        } else {
+            # error processing an error document results in a 500 error
+            my $error = $tt->error->as_string;
+	    my $type  = $self->content_type || $self->default_type;
             return [ 500, [ 'Content-Type' => $type ], [$error] ];
         }
     }
+
+    return [ $code, [ 'Content-Type' => $type ], [$error] ];
 }
 
 1;
@@ -225,11 +252,13 @@ Defaults to 1, see C<Template> configuration POST_CHOMP
 
 =back
 
-=head1 TODO
+In addition you can specify templates for error codes, for instance:
 
-Error documents are not served as templates. You can use 
-L<Plack::Middleware::ErrorDocument> for customization.
-
+  Plack::Middleware::Template->new(
+      root => '/path/to/htdocs/',
+      404  => 'page_not_found.html' # = /path/to/htdocs/page_not_found.html
+  );
+ 
 =head1 SEE ALSO
 
 L<Plack>, L<Template>

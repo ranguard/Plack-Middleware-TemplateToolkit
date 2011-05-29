@@ -4,7 +4,6 @@ use Plack::Builder;
 use Plack::Middleware::Template;
 use HTTP::Request;
 use File::Spec;
-use Plack::Middleware::ErrorDocument;
 use Plack::Builder;
 
 BEGIN {
