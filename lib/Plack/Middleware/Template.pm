@@ -75,62 +75,66 @@ sub _handle_template {
 
     my $extension = $self->extension;
     if ($extension and $path !~ /${extension}$/) {
-        # TODO: this needs test coverage and we may want to send another code
-        return $self->_error_document($req, "404", "text/plain", "Not found");
+        # TODO: we may want another code (forbidden) and message here
+        return $self->_process_error($req, "404", "text/plain", "Not found");
     }
 
-    my $tt = $self->tt;
-
-    my $vars = { params => $req->query_parameters, };
-
-    my $content;
     $path =~ s{^/}{};    # Do not want to enable absolute paths
 
-    if ( $tt->process( $path, $vars, \$content ) ) {
-	my $type = $self->content_type || do { 
-            Plack::MIME->mime_type($1) if $path =~ /(\.\w{1,6})$/
-	} || $self->default_type;
-        return [ 200, [ 'Content-Type' => $type ], [$content] ];
+    my $vars = { params => $req->query_parameters }; 
+    my $res = $self->process_template( $path, 200, $vars );
+    if ( ref $res ) {
+        return $res;
     } else {
-        my $error = $tt->error->as_string;
 	my $type  = $self->content_type || $self->default_type;
-        if ( $error =~ /not found/ ) {
-            return $self->_error_document($req, 404, $type, $error);
+        if ( $res =~ /file error .+ not found/ ) {
+            return $self->_process_error($req, 404, $type, $res);
         } else {
-            return $self->_error_document($req, 500, $type, $error);
+            if ( ref $req->logger ) {
+                $req->logger->({ level => "warn", message => $res });
+            }
+            return $self->_process_error($req, 500, $type, $res);
         }
     }
 }
 
-sub _error_document {
+sub process_template {
+    my ($self, $template, $code, $vars) = @_;
+
+    my $content;
+    if ( $self->tt->process( $template, $vars, \$content ) ) {
+        my $type = $self->content_type || do { 
+            Plack::MIME->mime_type($1) if $template =~ /(\.\w{1,6})$/
+        } || $self->default_type;
+        return [ $code, [ 'Content-Type' => $type ], [ $content ] ];
+    } else {
+        return $self->tt->error->as_string;
+    }
+}
+
+sub _process_error {
     my ($self, $req, $code, $type, $error) = @_;
 
-    # Repeated code needs refactoring.
-    # will also mimics parts of Plack::Middleware::ErrorDocument.
+    return [ $code, [ 'Content-Type' => $type ], [$error] ]
+        unless $self->{$code};
 
-    if ( $self->{$code} ) {
-        my $tt = $self->tt;
-        my $path = $self->{$code};
-        my $vars = { params => $req->query_parameters, error => $error };
-        my $content;
-        if ( $tt->process( $path, $vars, \$content ) ) {
-	    my $type = $self->content_type || do { 
-                Plack::MIME->mime_type($1) if $path =~ /(\.\w{1,6})$/
-	    } || $self->default_type;
-            return [ $code, [ 'Content-Type' => $type ], [$content] ];
+    my $res = $self->process_template( $self->{$code}, $code, 
+        { params => $req->query_parameters, error => $error } );
+
+    if ( ref $res ) {
+        return $res;
+    } else {
+       # processing error document failed: result in a 500 error
+        my $type  = $self->content_type || $self->default_type;
+        if ($code eq 500) { 
+           return [ 500, [ 'Content-Type' => $type ], [$res] ];
         } else {
-            # error processing an error document results in a 500 error
-            my $error = $tt->error->as_string;
-	    my $type  = $self->content_type || $self->default_type;
-            if ($code eq 500) { 
-               return [ 500, [ 'Content-Type' => $type ], [$error] ];
-            } else {
-               return $self->_error_document( $req, 500, $type, $error );
+            if ( ref $req->logger ) {
+                $req->logger->({ level => "warn", message => $res });
             }
+            return $self->_process_error( $req, 500, $type, $res );
         }
     }
-
-    return [ $code, [ 'Content-Type' => $type ], [$error] ];
 }
 
 1;
@@ -263,6 +267,22 @@ In addition you can specify templates for error codes, for instance:
       404  => 'page_not_found.html' # = /path/to/htdocs/page_not_found.html
   );
  
+If a specified error templates could not be found and processed, an error
+with HTTP status code 500 is returned, possibly also as template.
+
+=head1 METHODS
+
+In addition to the call() method derived from T<Plack::Middleware>, this
+class defines the following methods for internal use.
+
+=head2 process_template($template, $code, \%vars)
+
+Calls the process() method of L<Template> and returns the output in a PSGI
+response object on success. The first parameter indicates the input template's
+file name. The second parameter is the HTTP status code to return on success.
+A reference to a hash with template variables may be passed as third parameter.
+On failure this method returns an error message instead of a reference.
+
 =head1 SEE ALSO
 
 L<Plack>, L<Template>

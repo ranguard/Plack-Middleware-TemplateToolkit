@@ -2,6 +2,7 @@
 
 0.07
     Support templates for error documents
+    Log processing errors as warnings
 
 0.06
     Migrated to Plack::App::TemplateToolkit

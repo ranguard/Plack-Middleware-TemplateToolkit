@@ -1,5 +1,14 @@
 # package Plack::Test::App; # put this into a dedicated testing module?
 
+sub is_like { # I wonder why this is not part of Test::More
+    my ($got, $expected, $message) = @_;
+    if ( ref $expected and ref $expected eq 'Regexp' ) {
+        like( $got, $expected, $message );
+    } else {
+        is( $got, $expected, $message );
+    }
+}
+
 # run an array of tests with expected response on an app
 sub app_tests {
     my %arg = @_;
@@ -9,8 +18,22 @@ sub app_tests {
     my $run = sub {
         foreach my $test (@{$arg{tests}}) {
 
+            my @log;
+
             pass( '---- ' . $test->{name} . ' ----' ) if $test->{name};
             my $handler = builder {
+                enable sub { 
+                    my $app = shift;
+                    sub {
+                        my $env = shift;
+                        my $env_ref = $env;
+                        Scalar::Util::weaken($env_ref);
+                        $env->{'psgix.logger'} = sub {
+                            push @log, shift;
+                        };
+                        $app->($env);
+                    };
+                };
                 $app;
             };
 
@@ -19,11 +42,8 @@ sub app_tests {
 
                 my $res = $cb->( HTTP::Request->new( %{$test->{request}} ) );
 
-                if ( ref $test->{content} and ref $test->{content} eq 'Regexp' ) {
-                    like( $res->content, $test->{content},
-                        "Got content as expected" );
-                } elsif ( $test->{content} ) {
-                    is( $res->content, $test->{content},
+                if ( $test->{content} ) {
+                    is_like( $res->content, $test->{content}, 
                         "Got content as expected" );
                 }
 
@@ -41,6 +61,29 @@ sub app_tests {
                 }
 
                 is $h->as_string, '', 'No extra headers were set';
+
+                if ( $test->{logged} ) {
+                    my $n = @{$test->{logged}};
+                    for (my $i=0; $i < $n; $i++) {
+                        if ($i >= @log) {
+                            fail "Got ".@log." logging actions, expected $n";
+                            last;
+                        }
+                        my $expected = $test->{logged}->[$i];
+                        my $got  = $log[$i];
+                        if ( $expected->{level} ) {
+                            is( $got->{level}, $expected->{level}, 
+                                "Got logging level as expected" );
+                        }
+                        if ( defined $expected->{message} ) {
+                            is_like( $got->{message}, $expected->{message}, 
+                                "Got logging message as expected" );
+                        }
+                    }
+                    if (@log > $n) {
+                        fail "Got ".@log." logging actions, expected $n";
+                    }
+                }
             };
         }
     };

@@ -32,12 +32,14 @@ app_tests
         content => '404-page',
         headers => { 'Content-Type' => 'text/html', },
         code    => 404,
+        logged  => [ ]
     },{
         name    => '500 error template',
         request => { GET => '/broken.html' },
         content => qr/^Server error: file error - parse error/,
         headers => { 'Content-Type' => 'text/html', },
-        code    => 500
+        code    => 500,
+        logged  => [ { level => 'warn' } ],
     }];
 
 app_tests
@@ -52,6 +54,7 @@ app_tests
         content => 'Server error: file error - 404_missing.html: not found',
         headers => { 'Content-Type' => 'text/html', },
         code    => 500,
+        logged  => [ { level => 'warn' } ],
     }];
  
 app_tests
@@ -66,12 +69,14 @@ app_tests
         content => 'file error - 500_missing.html: not found',
         headers => { 'Content-Type' => 'text/html', },
         code    => 500,
+        logged  => [ { level => 'warn' } ],
     },{
         name    => '500 error template missing',
         request => { GET => '/broken.html' },
         content => 'file error - 500_missing.html: not found',
         headers => { 'Content-Type' => 'text/html', },
-        code    => 500
+        code    => 500,
+        logged  => [ { level=>'warn', message => qr/^file error - parse error - broken.html/ } ]
     }];
 
 done_testing;

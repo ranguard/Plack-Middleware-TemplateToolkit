@@ -92,4 +92,17 @@ app_tests
         headers => { 'Content-Type' => 'text/plain', },
     }];
 
+app_tests
+    app => Plack::Middleware::Template->new(
+            root => $root, 
+            extension => 'html'
+        )->to_app(),
+    tests => [{
+        name    => 'Forbidden extension',
+        request => { GET => '/style.css' },
+        content => 'Not found',
+        headers => { 'Content-Type' => 'text/plain', },
+        code    => 404
+    }];
+
 done_testing;
