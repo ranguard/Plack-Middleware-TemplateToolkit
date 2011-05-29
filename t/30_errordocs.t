@@ -35,7 +35,7 @@ app_tests
     },{
         name    => '500 error template',
         request => { GET => '/broken.html' },
-        content => '500-page',
+        content => qr/^Server error: file error - parse error/,
         headers => { 'Content-Type' => 'text/html', },
         code    => 500
     }];
@@ -44,12 +44,26 @@ app_tests
     app => Plack::Middleware::Template->new(
             root => $root,
             404  => '404_missing.html',
+            500  => '500.html',
+    ),
+    tests => [{ 
+        name    => '404 error template missing but we have 500 template',
+        request => { GET => '/boom.html' },
+        content => 'Server error: file error - 404_missing.html: not found',
+        headers => { 'Content-Type' => 'text/html', },
+        code    => 500,
+    }];
+ 
+app_tests
+    app => Plack::Middleware::Template->new(
+            root => $root,
+            404  => '404_missing.html',
             500  => '500_missing.html',
     ),
     tests => [{ 
-        name    => '404 error template missing',
+        name    => '404 error template missing and 500 error template missing',
         request => { GET => '/boom.html' },
-        content => 'file error - 404_missing.html: not found',
+        content => 'file error - 500_missing.html: not found',
         headers => { 'Content-Type' => 'text/html', },
         code    => 500,
     },{

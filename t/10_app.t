@@ -51,7 +51,7 @@ app_tests
     },{
         name    => 'broken template',
         request => { GET => '/broken.html' },
-        content => qr/parse error/,
+        content => qr/^file error - parse error/,
         headers => { 'Content-Type' => 'text/html', },
         code    => 500
     }];

@@ -111,7 +111,7 @@ sub _error_document {
     if ( $self->{$code} ) {
         my $tt = $self->tt;
         my $path = $self->{$code};
-        my $vars = { params => $req->query_parameters, };
+        my $vars = { params => $req->query_parameters, error => $error };
         my $content;
         if ( $tt->process( $path, $vars, \$content ) ) {
 	    my $type = $self->content_type || do { 
@@ -122,7 +122,11 @@ sub _error_document {
             # error processing an error document results in a 500 error
             my $error = $tt->error->as_string;
 	    my $type  = $self->content_type || $self->default_type;
-            return [ 500, [ 'Content-Type' => $type ], [$error] ];
+            if ($code eq 500) { 
+               return [ 500, [ 'Content-Type' => $type ], [$error] ];
+            } else {
+               return $self->_error_document( $req, 500, $type, $error );
+            }
         }
     }
 
