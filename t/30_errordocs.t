@@ -1,7 +1,7 @@
 use Test::More;
 use Plack::Test;
 use Plack::Builder;
-use Plack::Middleware::Template;
+use Plack::Middleware::TemplateToolkit;
 use HTTP::Request;
 use File::Spec;
 use Plack::Builder;
@@ -14,7 +14,7 @@ BEGIN {
 my $root = File::Spec->catdir("t","root");
 
 app_tests
-    app => Plack::Middleware::Template->new(
+    app => Plack::Middleware::TemplateToolkit->new(
             root => $root,
             404  => '404.html',
             500  => '500.html',
@@ -43,7 +43,7 @@ app_tests
     }];
 
 app_tests
-    app => Plack::Middleware::Template->new(
+    app => Plack::Middleware::TemplateToolkit->new(
             root => $root,
             404  => '404_missing.html',
             500  => '500.html',
@@ -58,7 +58,7 @@ app_tests
     }];
  
 app_tests
-    app => Plack::Middleware::Template->new(
+    app => Plack::Middleware::TemplateToolkit->new(
             root => $root,
             404  => '404_missing.html',
             500  => '500_missing.html',

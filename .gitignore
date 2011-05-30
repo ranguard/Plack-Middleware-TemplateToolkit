@@ -8,3 +8,4 @@ blib
 .*
 !.gitignore
 !.shipit
+Plack-Middleware-TemplateToolkit*

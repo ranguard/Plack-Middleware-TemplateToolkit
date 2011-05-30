@@ -1,16 +1,8 @@
-package Plack::Middleware::Template;
+package Plack::Middleware::TemplateToolkit;
 
 use strict;
 use warnings;
 use 5.008_001;
-
-=head1 NAME
-
-Plack::Middleware::Template - Serve files with Template Toolkit and Plack
-
-=cut
-
-our $VERSION = 0.07;
 
 use parent 'Plack::Middleware';
 use Plack::Request 0.994;
@@ -55,6 +47,8 @@ sub call {    # adopted from Plack::Middleware::Static
     }
 
     return $self->app->($env);
+
+    # TODO: catch errors from $self->app and transform them if required
 }
 
 sub _handle_template {
@@ -141,6 +135,10 @@ sub _process_error {
 
 __END__
 
+=head1 NAME
+
+Plack::Middleware::TemplateToolkit - Serve files with Template Toolkit and Plack
+
 =head1 SYNOPSIS
 
     use Plack::Builder;
@@ -156,7 +154,7 @@ __END__
             path => qr{\.[gif|png|jpg|swf|ico|mov|mp3|pdf|js|css]$},
             root => $root;
 
-	enable "Plack::Middleware::Template",
+	enable "Plack::Middleware::TemplateToolkit",
             root => '/path/to/htdocs/', # required
             pass_through => 1; # delegate missing templates to $app
 
@@ -165,9 +163,9 @@ __END__
 
 A minimal .psgi script that uses the middleware as stand-alone application:
 
-    use Plack::Middleware::Template;
+    use Plack::Middleware::TemplateToolkit;
 
-    Plack::Middleware::Template->new( root => "/path/to/docs" );
+    Plack::Middleware::TemplateToolkit->new( root => "/path/to/docs" );
 
 =head1 DESCRIPTION
 
@@ -262,7 +260,7 @@ Defaults to 1, see C<Template> configuration POST_CHOMP
 
 In addition you can specify templates for error codes, for instance:
 
-  Plack::Middleware::Template->new(
+  Plack::Middleware::TemplateToolkit->new(
       root => '/path/to/htdocs/',
       404  => 'page_not_found.html' # = /path/to/htdocs/page_not_found.html
   );
@@ -286,14 +284,5 @@ On failure this method returns an error message instead of a reference.
 =head1 SEE ALSO
 
 L<Plack>, L<Template>
-
-=head1 AUTHORS
-
-Leo Lapworth and Jakob Voss
-
-=head1 LICENSE
-
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself.
 
 =cut

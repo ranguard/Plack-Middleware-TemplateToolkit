@@ -1,5 +1,9 @@
 # Change file for Plack::Middleware::Template
 
+0.1
+    Renamed to Plack::Middleware::TemplateToolkit
+    More test coverage
+
 0.07
     Support templates for error documents
     Log processing errors as warnings

@@ -1,7 +1,7 @@
 use Test::More;
 use Plack::Test;
 use Plack::Builder;
-use Plack::Middleware::Template;
+use Plack::Middleware::TemplateToolkit;
 use HTTP::Request;
 use File::Spec;
 use Plack::Builder;
@@ -17,7 +17,7 @@ my $err = sub { [ 500, ["Content-type"=>"text/plain"], ["Server hit the bottom"]
 app_tests
     name => 'pass_though',
     app => builder {
-        enable "Plack::Middleware::Template", 
+        enable "Plack::Middleware::TemplateToolkit", 
             root => $root, 
             pass_through => 1;
         $err;
@@ -41,7 +41,7 @@ app_tests
 
 app_tests 
     app => builder {
-        enable "Plack::Middleware::Template", 
+        enable "Plack::Middleware::TemplateToolkit", 
             root => $root,
             default_type => "text/plain";
         $err;

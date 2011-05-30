@@ -1,7 +1,7 @@
 use Test::More;
 use Plack::Test;
 use Plack::Builder;
-use Plack::Middleware::Template;
+use Plack::Middleware::TemplateToolkit;
 use HTTP::Request;
 use File::Spec;
 use Plack::Middleware::ErrorDocument;
@@ -13,7 +13,7 @@ BEGIN {
 
 my $root = File::Spec->catdir("t","root");
 
-my $app = Plack::Middleware::Template->new(
+my $app = Plack::Middleware::TemplateToolkit->new(
     root => $root,    # Required
 )->to_app();
 
@@ -57,7 +57,7 @@ app_tests
     }];
 
 app_tests
-    app => Plack::Middleware::Template->new(
+    app => Plack::Middleware::TemplateToolkit->new(
             root        => $root,
             pre_process => 'pre.html'
         )->to_app(),
@@ -69,7 +69,7 @@ app_tests
     }];
 
 app_tests
-    app => Plack::Middleware::Template->new(
+    app => Plack::Middleware::TemplateToolkit->new(
             root    => $root,
             process => 'process.html'
         )->to_app(),
@@ -81,7 +81,7 @@ app_tests
     }];
 
 app_tests
-    app => Plack::Middleware::Template->new(
+    app => Plack::Middleware::TemplateToolkit->new(
             root         => $root, 
             default_type => 'text/plain'
         )->to_app(),
@@ -93,7 +93,7 @@ app_tests
     }];
 
 app_tests
-    app => Plack::Middleware::Template->new(
+    app => Plack::Middleware::TemplateToolkit->new(
             root => $root, 
             extension => 'html'
         )->to_app(),
