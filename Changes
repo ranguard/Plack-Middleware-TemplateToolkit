@@ -1,9 +1,11 @@
-# Change file for Plack::Middleware::Template
+# Change file for Plack::Middleware::TemplateToolkit
 
 0.1
     Renamed to Plack::Middleware::TemplateToolkit
     Add variable injection
     More test coverage
+
+# Previous life as Plack::App::TemplateToolkit...
 
 0.07
     Support templates for error documents

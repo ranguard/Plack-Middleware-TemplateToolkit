@@ -188,7 +188,7 @@ more significant later.
 
 As L<Plack::Middleware> derives from C<Plack::Component> you can also use
 this as simple application. If you just want to serve files via Template
-Toolkit, treat this module as if it was called Plack::App::Template.
+Toolkit, treat this module as if it was called Plack::App::TemplateToolkit.
 
 By default, the QUERY_STRING params are available to the templates, but the
 more you use these the harder it could be to migrate later so you might want to
@@ -196,7 +196,7 @@ look at a propper framework such as L<Catalyst> if you do want to use them:
 
   [% params.get('field') %] params is a L<Hash::MultiValue>
 
-You can mix this application with other Plack::App applications and
+You can mix this middleware with other Plack::App applications and
 Plack::Middleware which you will find on CPAN.
 
 =head1 CONFIGURATIONS
