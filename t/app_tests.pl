@@ -40,33 +40,35 @@ sub app_tests {
             test_psgi $handler, sub { 
                 my $cb = shift;
 
-                my $res = $cb->( HTTP::Request->new( %{$test->{request}} ) );
+                my $res = $cb->( HTTP::Request->new( @{$test->{request}} ) );
 
-                if ( $test->{content} ) {
+                if ( defined $test->{content} ) {
                     is_like( $res->content, $test->{content}, 
                         "Got content as expected" );
                 }
 
-                if ( $test->{code} ) {
+                if ( defined $test->{code} ) {
                     is( $res->code, $test->{code}, 
                         "Got status code as expected" );
                 }
 
-                my $h = $res->headers;
+                if ( defined $test->{headers} ) {
+                    my $h = $res->headers;
 
-                while ( my ( $header, $value ) = each %{ $test->{headers} } )
-                {
-                    is $res->header($header), $value, "Header $header - ok";
-                    $h->remove_header($header);
+                    while ( my ( $header, $value ) = each %{ $test->{headers} } )
+                    {
+                        is $res->header($header), $value, "Header $header - ok";
+                        $h->remove_header($header);
+                    }
+
+                    is $h->as_string, '', 'No extra headers were set';
                 }
-
-                is $h->as_string, '', 'No extra headers were set';
 
                 if ( $test->{logged} ) {
                     my $n = @{$test->{logged}};
                     for (my $i=0; $i < $n; $i++) {
                         if ($i >= @log) {
-                            fail "Got ".@log." logging actions, expected $n";
+                            ok( 0, "Got ".@log." logging actions, expected $n");
                             last;
                         }
                         my $expected = $test->{logged}->[$i];
@@ -81,15 +83,15 @@ sub app_tests {
                         }
                     }
                     if (@log > $n) {
-                        fail "Got ".@log." logging actions, expected $n";
+                        ok( 0, "Got ".@log." logging actions, expected $n" );
                     }
                 }
             };
         }
     };
 
-    if ($arg{name}) {
-        subtest $arg{name} => $run;
+    if ($arg{'name'}) {
+        subtest $arg{'name'} => $run;
     } else {
         $run->();
     }

@@ -22,20 +22,20 @@ app_tests
     ),
     tests => [{ 
         name    => 'Basic request',
-        request => { GET => '/index.html' },
+        request => [ GET => '/index.html' ],
         content => 'Page value',
         headers => { 'Content-Type' => 'text/html', },
         code    => 200
     },{
         name    => '404 error template',
-        request => { GET => '/boom.html' },
+        request => [ GET => '/boom.html' ],
         content => '404-page',
         headers => { 'Content-Type' => 'text/html', },
         code    => 404,
         logged  => [ ]
     },{
         name    => '500 error template',
-        request => { GET => '/broken.html' },
+        request => [ GET => '/broken.html' ],
         content => qr/^Server error: file error - parse error/,
         headers => { 'Content-Type' => 'text/html', },
         code    => 500,
@@ -50,7 +50,7 @@ app_tests
     ),
     tests => [{ 
         name    => '404 error template missing but we have 500 template',
-        request => { GET => '/boom.html' },
+        request => [ GET => '/boom.html' ],
         content => 'Server error: file error - 404_missing.html: not found',
         headers => { 'Content-Type' => 'text/html', },
         code    => 500,
@@ -65,14 +65,14 @@ app_tests
     ),
     tests => [{ 
         name    => '404 error template missing and 500 error template missing',
-        request => { GET => '/boom.html' },
+        request => [ GET => '/boom.html' ],
         content => 'file error - 500_missing.html: not found',
         headers => { 'Content-Type' => 'text/html', },
         code    => 500,
         logged  => [ { level => 'warn' } ],
     },{
         name    => '500 error template missing',
-        request => { GET => '/broken.html' },
+        request => [ GET => '/broken.html' ],
         content => 'file error - 500_missing.html: not found',
         headers => { 'Content-Type' => 'text/html', },
         code    => 500,

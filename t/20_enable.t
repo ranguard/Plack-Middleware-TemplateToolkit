@@ -23,20 +23,20 @@ app_tests
         $err;
     },
     tests => [{ 
-        name       => 'Basic request',
-        request    => { GET => '/index.html' },
-        content    => 'Page value',
-        headers    => { 'Content-Type' => 'text/html', },
+        name    => 'Basic request',
+        request => [ GET => '/index.html' ],
+        content => 'Page value',
+        headers => { 'Content-Type' => 'text/html', },
     },{
-        name       => 'Index request',
-        request    => { GET => '/' },
-        content    => 'Page value',
-        headers    => { 'Content-Type' => 'text/html', },
+        name    => 'Index request',
+        request => [ GET => '/' ],
+        content => 'Page value',
+        headers => { 'Content-Type' => 'text/html', },
     },{
-        name       => '404request',
-        request    => { GET => '/boom.html' },
-        content    => 'Server hit the bottom',
-        headers    => { 'Content-Type' => 'text/plain', },
+        name  	=> '404request',
+        request => [ GET => '/boom.html' ],
+        content => 'Server hit the bottom',
+        headers => { 'Content-Type' => 'text/plain', },
     }];
 
 app_tests 
@@ -47,10 +47,10 @@ app_tests
         $err;
     },
     tests => [{
-        name       => '404request',
-        request    => { GET => '/boom.html' },
-        content    => 'file error - boom.html: not found',
-        headers    => { 'Content-Type' => 'text/plain', },
+        name 	=> '404request',
+        request => [ GET => '/boom.html' ],
+        content => 'file error - boom.html: not found',
+        headers => { 'Content-Type' => 'text/plain', },
     }];
 
 done_testing;
