@@ -10,8 +10,7 @@ use Plack::MIME;
 use Template 2;
 
 use Plack::Util::Accessor
-    qw(root interpolate post_chomp dir_index path extension content_type 
-       default_type tt eval_perl pre_process process pass_through 404 vars);
+    qw(root interpolate post_chomp dir_index path extension content_type default_type tt eval_perl pre_process process pass_through 404 vars);
 
 sub prepare_app {
     my ($self) = @_;
@@ -25,10 +24,14 @@ sub prepare_app {
     $self->post_chomp(1)             unless defined $self->post_chomp;
 
     if ( not ref $self->vars ) {
-        $self->vars( sub { { shift->query_parameters } } );
+        $self->vars(
+            sub {
+                { shift->query_parameters }
+            }
+        );
     } elsif ( ref $self->vars ne 'CODE' ) {
         my $vars = $self->vars;
-        $self->vars( sub { $vars } );
+        $self->vars( sub {$vars} );
     }
 
     my $config = {
@@ -46,10 +49,10 @@ sub prepare_app {
 }
 
 sub call {    # adopted from Plack::Middleware::Static
-    my ($self, $env) = @_;
+    my ( $self, $env ) = @_;
 
     my $res = $self->_handle_template($env);
-    if ($res && not ($self->pass_through and $res->[0] == 404)) {
+    if ( $res && not( $self->pass_through and $res->[0] == 404 ) ) {
         return $res;
     }
 
@@ -59,13 +62,16 @@ sub call {    # adopted from Plack::Middleware::Static
 }
 
 sub _handle_template {
-    my ($self, $env) = @_;
+    my ( $self, $env ) = @_;
 
     my $path_match = $self->path || '/';
     my $path = $env->{PATH_INFO};
 
     for ($path) {
-        my $matched = 'CODE' eq ref $path_match ? $path_match->($_) : $_ =~ $path_match;
+        my $matched
+            = 'CODE' eq ref $path_match
+            ? $path_match->($_)
+            : $_ =~ $path_match;
         return unless $matched;
     }
 
@@ -75,64 +81,68 @@ sub _handle_template {
     $path .= $self->dir_index if $path =~ /\/$/;
 
     my $extension = $self->extension;
-    if ($extension and $path !~ /${extension}$/) {
+    if ( $extension and $path !~ /${extension}$/ ) {
+
         # TODO: we may want another code (forbidden) and message here
-        return $self->_process_error($req, "404", "text/plain", "Not found");
+        return $self->_process_error( $req, "404", "text/plain",
+            "Not found" );
     }
 
     $path =~ s{^/}{};    # Do not want to enable absolute paths
 
-    my $vars = $self->vars->( $req );
+    my $vars = $self->vars->($req);
     my $res = $self->process_template( $path, 200, $vars );
     if ( ref $res ) {
         return $res;
     } else {
-    my $type  = $self->content_type || $self->default_type;
+        my $type = $self->content_type || $self->default_type;
         if ( $res =~ /file error .+ not found/ ) {
-            return $self->_process_error($req, 404, $type, $res);
+            return $self->_process_error( $req, 404, $type, $res );
         } else {
             if ( ref $req->logger ) {
-                $req->logger->({ level => "warn", message => $res });
+                $req->logger->( { level => "warn", message => $res } );
             }
-            return $self->_process_error($req, 500, $type, $res);
+            return $self->_process_error( $req, 500, $type, $res );
         }
     }
 }
 
 sub process_template {
-    my ($self, $template, $code, $vars) = @_;
+    my ( $self, $template, $code, $vars ) = @_;
 
     my $content;
     if ( $self->tt->process( $template, $vars, \$content ) ) {
-        my $type = $self->content_type || do { 
-            Plack::MIME->mime_type($1) if $template =~ /(\.\w{1,6})$/
-        } || $self->default_type;
-        return [ $code, [ 'Content-Type' => $type ], [ $content ] ];
+        my $type = $self->content_type || do {
+            Plack::MIME->mime_type($1) if $template =~ /(\.\w{1,6})$/;
+            }
+            || $self->default_type;
+        return [ $code, [ 'Content-Type' => $type ], [$content] ];
     } else {
         return $self->tt->error->as_string;
     }
 }
 
 sub _process_error {
-    my ($self, $req, $code, $type, $error) = @_;
+    my ( $self, $req, $code, $type, $error ) = @_;
 
     return [ $code, [ 'Content-Type' => $type ], [$error] ]
         unless $self->{$code};
 
-    my $vars = $self->vars->( $req );
-    my $res = $self->process_template( $self->{$code}, $code,
+    my $vars = $self->vars->($req);
+    my $res  = $self->process_template( $self->{$code}, $code,
         { %$vars, error => $error } );
 
     if ( ref $res ) {
         return $res;
     } else {
-       # processing error document failed: result in a 500 error
-        my $type  = $self->content_type || $self->default_type;
-        if ($code eq 500) { 
-           return [ 500, [ 'Content-Type' => $type ], [$res] ];
+
+        # processing error document failed: result in a 500 error
+        my $type = $self->content_type || $self->default_type;
+        if ( $code eq 500 ) {
+            return [ 500, [ 'Content-Type' => $type ], [$res] ];
         } else {
             if ( ref $req->logger ) {
-                $req->logger->({ level => "warn", message => $res });
+                $req->logger->( { level => "warn", message => $res } );
             }
             return $self->_process_error( $req, 500, $type, $res );
         }
@@ -278,7 +288,7 @@ In addition you can specify templates for error codes, for instance:
       root => '/path/to/htdocs/',
       404  => 'page_not_found.html' # = /path/to/htdocs/page_not_found.html
   );
- 
+
 If a specified error templates could not be found and processed, an error
 with HTTP status code 500 is returned, possibly also as template.
 
