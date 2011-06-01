@@ -284,7 +284,7 @@ with HTTP status code 500 is returned, possibly also as template.
 
 =head1 METHODS
 
-In addition to the call() method derived from T<Plack::Middleware>, this
+In addition to the call() method derived from L<Plack::Middleware>, this
 class defines the following methods for internal use.
 
 =head2 process_template($template, $code, \%vars)
