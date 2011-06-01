@@ -33,7 +33,7 @@ app_tests
         content => 'Page value',
         headers => { 'Content-Type' => 'text/html', },
     },{
-        name  	=> '404request',
+        name    => '404request',
         request => [ GET => '/boom.html' ],
         content => 'Server hit the bottom',
         headers => { 'Content-Type' => 'text/plain', },
@@ -47,7 +47,7 @@ app_tests
         $err;
     },
     tests => [{
-        name 	=> '404request',
+        name    => '404request',
         request => [ GET => '/boom.html' ],
         content => 'file error - boom.html: not found',
         headers => { 'Content-Type' => 'text/plain', },

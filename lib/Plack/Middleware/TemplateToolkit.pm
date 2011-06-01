@@ -87,7 +87,7 @@ sub _handle_template {
     if ( ref $res ) {
         return $res;
     } else {
-	my $type  = $self->content_type || $self->default_type;
+    my $type  = $self->content_type || $self->default_type;
         if ( $res =~ /file error .+ not found/ ) {
             return $self->_process_error($req, 404, $type, $res);
         } else {
@@ -162,7 +162,7 @@ Plack::Middleware::TemplateToolkit - Serve files with Template Toolkit and Plack
             path => qr{\.[gif|png|jpg|swf|ico|mov|mp3|pdf|js|css]$},
             root => $root;
 
-	enable "Plack::Middleware::TemplateToolkit",
+        enable "Plack::Middleware::TemplateToolkit",
             root => '/path/to/htdocs/', # required
             pass_through => 1; # delegate missing templates to $app
 
