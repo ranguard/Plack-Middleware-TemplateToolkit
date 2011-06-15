@@ -10,12 +10,13 @@ use Plack::MIME;
 use Template 2;
 
 use Plack::Util::Accessor
-    qw(root interpolate post_chomp dir_index path extension content_type default_type tt eval_perl pre_process process pass_through 404 vars);
+    qw(root interpolate post_chomp dir_index path extension content_type 
+       default_type tt eval_perl pre_process process pass_through 404 vars);
 
 sub prepare_app {
     my ($self) = @_;
 
-    die "No root supplied" unless $self->root;
+    die 'No root supplied' unless $self->root;
 
     $self->dir_index('index.html')   unless $self->dir_index;
     $self->default_type('text/html') unless $self->default_type;
@@ -51,7 +52,7 @@ sub prepare_app {
 sub call {    # adopted from Plack::Middleware::Static
     my ( $self, $env ) = @_;
 
-    my $res = $self->_handle_template($env);
+    my $res = $self->_handle_template($env); # returns undef only if no match
     if ( $res && not( $self->pass_through and $res->[0] == 404 ) ) {
         return $res;
     }
@@ -84,8 +85,7 @@ sub _handle_template {
     if ( $extension and $path !~ /${extension}$/ ) {
 
         # TODO: we may want another code (forbidden) and message here
-        return $self->_process_error( $req, "404", "text/plain",
-            "Not found" );
+        return $self->_process_error( $req, 404, 'text/plain', 'Not found' );
     }
 
     $path =~ s{^/}{};    # Do not want to enable absolute paths
@@ -100,7 +100,7 @@ sub _handle_template {
             return $self->_process_error( $req, 404, $type, $res );
         } else {
             if ( ref $req->logger ) {
-                $req->logger->( { level => "warn", message => $res } );
+                $req->logger->( { level => 'warn', message => $res } );
             }
             return $self->_process_error( $req, 500, $type, $res );
         }
@@ -142,7 +142,7 @@ sub _process_error {
             return [ 500, [ 'Content-Type' => $type ], [$res] ];
         } else {
             if ( ref $req->logger ) {
-                $req->logger->( { level => "warn", message => $res } );
+                $req->logger->( { level => 'warn', message => $res } );
             }
             return $self->_process_error( $req, 500, $type, $res );
         }
@@ -179,7 +179,7 @@ Plack::Middleware::TemplateToolkit - Serve files with Template Toolkit and Plack
         $app;
     }
 
-A minimal .psgi script that uses the middleware as stand-alone application:
+A minimal L<.psgi|PSGI> script as stand-alone application:
 
     use Plack::Middleware::TemplateToolkit;
 
@@ -188,15 +188,13 @@ A minimal .psgi script that uses the middleware as stand-alone application:
 =head1 DESCRIPTION
 
 Enable this middleware or application to allow your Plack-based application to
-serve files processed through L<Template> Toolkit (TT).
+serve files processed through L<Template Toolkit|Template> (TT). The idea
+behind this module is to provide content that is ALMOST static, but where
+having the power of TT can make the content easier to manage. You probably only
+want to use this for the simpliest of sites, but it should be easy enough to
+migrate to something more significant later.
 
-The idea behind this module is to provide access to L<Template> Toolkit (TT) for
-content that is ALMOST static, but where having the power of TT can make
-the content easier to manage. You probably only want to use this for the
-simpliest of sites, but it should be easy enough to migrate to something
-more significant later.
-
-As L<Plack::Middleware> derives from C<Plack::Component> you can also use
+As L<Plack::Middleware> derives from L<Plack::Component> you can also use
 this as simple application. If you just want to serve files via Template
 Toolkit, treat this module as if it was called Plack::App::TemplateToolkit.
 
@@ -255,7 +253,8 @@ Which file to use as a directory index, defaults to index.html
 
 If this option is enabled, requests are passed back to the application, if
 the incoming request path matches with the C<path> but the requested template
-file is not found.
+file is not found. Disabled by default, so all matching requests result in
+a valid response with status code 200, 404, or 500.
 
 =item pre_process
 
