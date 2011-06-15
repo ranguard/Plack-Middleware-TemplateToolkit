@@ -14,7 +14,8 @@ BEGIN {
 my $root = File::Spec->catdir( "t", "root" );
 
 my $app = Plack::Middleware::TemplateToolkit->new(
-    root => $root,    # Required
+    INCLUDE_PATH => $root,
+    POST_CHOMP   => 1
 )->to_app();
 
 $app = Plack::Middleware::ErrorDocument->wrap( $app, 404 => "$root/404.html" );
@@ -58,8 +59,9 @@ app_tests
 
 app_tests
     app => Plack::Middleware::TemplateToolkit->new(
-    root        => $root,
-    pre_process => 'pre.html'
+        INCLUDE_PATH => $root,
+        PRE_PROCESS  => 'pre.html',
+        POST_CHOMP   => 1
     )->to_app(),
     tests => [
     {   name    => 'Basic request with pre_process',
@@ -71,8 +73,9 @@ app_tests
 
 app_tests
     app => Plack::Middleware::TemplateToolkit->new(
-    root    => $root,
-    process => 'process.html'
+        INCLUDE_PATH => $root,
+        PROCESS      => 'process.html',
+        POST_CHOMP   => 1
     )->to_app(),
     tests => [
     {   name    => 'Basic request with pre_process',
@@ -84,8 +87,8 @@ app_tests
 
 app_tests
     app => Plack::Middleware::TemplateToolkit->new(
-    root         => $root,
-    default_type => 'text/plain'
+        INCLUDE_PATH => $root,
+        default_type => 'text/plain'
     )->to_app(),
     tests => [
     {   name    => 'Default MIME type',
@@ -97,8 +100,8 @@ app_tests
 
 app_tests
     app => Plack::Middleware::TemplateToolkit->new(
-    root      => $root,
-    extension => 'html'
+        INCLUDE_PATH => $root,
+        extension => 'html'
     )->to_app(),
     tests => [
     {   name    => 'Forbidden extension',
@@ -111,7 +114,7 @@ app_tests
 
 app_tests
     app => Plack::Middleware::TemplateToolkit->new(
-        root => $root,
+        INCLUDE_PATH => $root,
         vars => { foo => 'Hello', bar => ', world!' }
     )->to_app(),
     tests => [
@@ -123,7 +126,7 @@ app_tests
 
 app_tests 
     app => Plack::Middleware::TemplateToolkit->new(
-        root => $root,
+        INCLUDE_PATH => $root,
         vars => sub {
             my $req = shift;
             return { foo => 'Hi, ', bar => $req->param('who') };

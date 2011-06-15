@@ -20,7 +20,8 @@ app_tests
     name => 'pass_though',
     app  => builder {
     enable "Plack::Middleware::TemplateToolkit",
-        root         => $root,
+        INCLUDE_PATH => $root,
+        POST_CHOMP   => 1,
         pass_through => 1;
     $err;
     },
@@ -44,7 +45,8 @@ app_tests
 
 app_tests app => builder {
     enable "Plack::Middleware::TemplateToolkit",
-        root         => $root,
+        INCLUDE_PATH => $root,
+        POST_CHOMP   => 1,
         default_type => "text/plain";
     $err;
 },

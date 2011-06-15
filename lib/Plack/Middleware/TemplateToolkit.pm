@@ -9,20 +9,24 @@ use Plack::Request 0.994;
 use Plack::MIME;
 use Template 2;
 
-use Plack::Util::Accessor
-    qw(root interpolate post_chomp dir_index path extension content_type 
-       default_type tt eval_perl pre_process process pass_through 404 vars);
+# Configuration options as described in Template::Manual::Config
+our @TT_CONFIG;
+BEGIN { @TT_CONFIG = qw(START_TAG END_TAG TAG_STYLE PRE_CHOMP POST_CHOMP TRIM
+INTERPOLATE ANYCASE INCLUDE_PATH DELIMITER ABSOLUTE RELATIVE DEFAULT BLOCKS
+VIEWS AUTO_RESET RECURSION VARIABLES CONSTANTS CONSTANT_NAMESPACE NAMESPACE
+PRE_PROCESS POST_PROCESS PROCESS WRAPPER ERROR EVAL_PERL OUTPUT OUTPUT_PATH
+STRICT DEBUG DEBUG_FORMAT CACHE_SIZE STAT_TTL COMPILE_EXT COMPILE_DIR PLUGINS
+PLUGIN_BASE LOAD_PERL FILTERS LOAD_TEMPLATES LOAD_PLUGINS LOAD_FILTERS TOLERANT
+SERVICE CONTEXT STASH PARSER GRAMMAR); }
+
+use Plack::Util::Accessor (qw(dir_index path extension content_type 
+       default_type tt pass_through 404 vars),@TT_CONFIG);
 
 sub prepare_app {
     my ($self) = @_;
 
-    die 'No root supplied' unless $self->root;
-
     $self->dir_index('index.html')   unless $self->dir_index;
     $self->default_type('text/html') unless $self->default_type;
-    $self->interpolate(0)            unless defined $self->interpolate;
-    $self->eval_perl(0)              unless defined $self->eval_perl;
-    $self->post_chomp(1)             unless defined $self->post_chomp;
 
     if ( not ref $self->vars ) {
         $self->vars(
@@ -35,15 +39,12 @@ sub prepare_app {
         $self->vars( sub {$vars} );
     }
 
-    my $config = {
-        INCLUDE_PATH => $self->root,           # or list ref
-        INTERPOLATE  => $self->interpolate,    # expand "$var" in plain text
-        POST_CHOMP   => $self->post_chomp,     # cleanup whitespace
-        EVAL_PERL    => $self->eval_perl,      # evaluate Perl code blocks
-    };
+    die 'No INCLUDE_PATH supplied' unless $self->INCLUDE_PATH;
 
-    $config->{PRE_PROCESS} = $self->pre_process if $self->pre_process;
-    $config->{PROCESS}     = $self->process     if $self->process;
+    my $config = { };
+    foreach ( @TT_CONFIG ) {
+        $config->{$_} = $self->$_ if $self->$_;
+    }
 
     # create Template object
     $self->tt( Template->new($config) );
@@ -170,10 +171,10 @@ Plack::Middleware::TemplateToolkit - Serve files with Template Toolkit and Plack
         # These files can be served directly
         enable "Plack::Middleware::Static",
             path => qr{\.[gif|png|jpg|swf|ico|mov|mp3|pdf|js|css]$},
-            root => $root;
+            INCLUDE_PATH => $root;
 
         enable "Plack::Middleware::TemplateToolkit",
-            root => '/path/to/htdocs/', # required
+            INCLUDE_PATH => '/path/to/htdocs/', # required
             pass_through => 1; # delegate missing templates to $app
 
         $app;
@@ -183,7 +184,7 @@ A minimal L<.psgi|PSGI> script as stand-alone application:
 
     use Plack::Middleware::TemplateToolkit;
 
-    Plack::Middleware::TemplateToolkit->new( root => "/path/to/docs" );
+    Plack::Middleware::TemplateToolkit->new( INCLUDE_PATH => "/path/to/docs" );
 
 =head1 DESCRIPTION
 
@@ -209,12 +210,12 @@ Plack::Middleware which you will find on CPAN.
 
 =head1 CONFIGURATIONS
 
+You can use all configuration options that are supported by Template Toolkit
+(INCLUDE_PATH, INTERPOLATE, POST_COMP...). See L<Template::Manual::Config> for
+an overview. The only mandatory option is INCLUDE_PATH to point to where the
+templates live.
+
 =over 4
-
-=item root
-
-Required, root where templates live. This can be an array reference or a string
-(see L<Template> configuration INCLUDE_PATH)
 
 =item path
 
@@ -256,29 +257,6 @@ the incoming request path matches with the C<path> but the requested template
 file is not found. Disabled by default, so all matching requests result in
 a valid response with status code 200, 404, or 500.
 
-=item pre_process
-
-Optional, supply a file to pre process before serving each html file
-(see C<Template> configuration PRE_PROCESS)
-
-=item process
-
-Optional, supply a file to process (see C<Template> configuration PROCESS)
-
-=item eval_perl
-
-Default to 0, this option lets you run perl blocks in your
-templates - I would strongly recommend NOT using this.
-(see C<Template> configuration EVAL_PERL)
-
-=item interpolate
-
-Default to 0, see C<Template> configuration INTERPOLATE
-
-=item post_chomp
-
-Defaults to 1, see C<Template> configuration POST_CHOMP
-
 =back
 
 In addition you can specify templates for error codes, for instance:
@@ -307,5 +285,9 @@ On failure this method returns an error message instead of a reference.
 =head1 SEE ALSO
 
 L<Plack>, L<Template>
+
+=head1 AUTHORS
+
+Leo Lapworth and Jakob Voss
 
 =cut

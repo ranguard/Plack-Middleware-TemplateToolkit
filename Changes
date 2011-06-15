@@ -1,5 +1,8 @@
 # Change file for Plack::Middleware::TemplateToolkit
 
+0.11
+    Use the same configuration options as Template Toolkit
+
 0.1
     Renamed to Plack::Middleware::TemplateToolkit
     Add variable injection

@@ -15,10 +15,11 @@ my $root = File::Spec->catdir( "t", "root" );
 
 app_tests
     app => Plack::Middleware::TemplateToolkit->new(
-    root => $root,
-    404  => '404.html',
-    500  => '500.html',
-    200  => 'ignore_this',
+        INCLUDE_PATH => $root,
+        POST_CHOMP   => 1,
+        404  => '404.html',
+        500  => '500.html',
+        200  => 'ignore_this',
     ),
     tests => [
     {   name    => 'Basic request',
@@ -45,9 +46,10 @@ app_tests
 
 app_tests
     app => Plack::Middleware::TemplateToolkit->new(
-    root => $root,
-    404  => '404_missing.html',
-    500  => '500.html',
+        INCLUDE_PATH => $root,
+        POST_CHOMP   => 1,
+        404  => '404_missing.html',
+        500  => '500.html',
     ),
     tests => [
     {   name    => '404 error template missing but we have 500 template',
@@ -61,9 +63,9 @@ app_tests
 
 app_tests
     app => Plack::Middleware::TemplateToolkit->new(
-    root => $root,
-    404  => '404_missing.html',
-    500  => '500_missing.html',
+        INCLUDE_PATH => $root,
+        404  => '404_missing.html',
+        500  => '500_missing.html',
     ),
     tests => [
     {   name => '404 error template missing and 500 error template missing',
