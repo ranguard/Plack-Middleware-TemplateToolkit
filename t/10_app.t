@@ -17,8 +17,7 @@ my $app = Plack::Middleware::TemplateToolkit->new(
     root => $root,    # Required
 )->to_app();
 
-$app = Plack::Middleware::ErrorDocument->wrap( $app, 404 => "$root/404.html",
-);
+$app = Plack::Middleware::ErrorDocument->wrap( $app, 404 => "$root/404.html" );
 
 app_tests
     app   => $app,
@@ -112,8 +111,8 @@ app_tests
 
 app_tests
     app => Plack::Middleware::TemplateToolkit->new(
-    root => $root,
-    vars => { foo => 'Hello', bar => ', world!' }
+        root => $root,
+        vars => { foo => 'Hello', bar => ', world!' }
     )->to_app(),
     tests => [
     {   name    => 'Variables in templates',
@@ -122,12 +121,13 @@ app_tests
     }
     ];
 
-app_tests app => Plack::Middleware::TemplateToolkit->new(
-    root => $root,
-    vars => sub {
-        my $req = shift;
-        return { foo => 'Hi, ', bar => $req->param('who') };
-    }
+app_tests 
+    app => Plack::Middleware::TemplateToolkit->new(
+        root => $root,
+        vars => sub {
+            my $req = shift;
+            return { foo => 'Hi, ', bar => $req->param('who') };
+        }
     )->to_app(),
     tests => [
     {   name    => 'Variables in templates',
@@ -135,5 +135,20 @@ app_tests app => Plack::Middleware::TemplateToolkit->new(
         content => 'Hi, you',
     }
     ];
+
+app_tests 
+    app => builder {
+        enable sub { my $app = shift; sub { 
+            my $env = shift;
+            $env->{PATH_INFO} = '';
+            $app->($env);
+        } };
+        $app;
+    },
+    tests => [{
+        name    => 'use as plain app',
+        request => [ GET => '' ],
+        code    => 200,
+    }];
 
 done_testing;

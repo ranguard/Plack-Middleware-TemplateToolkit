@@ -66,7 +66,7 @@ sub _handle_template {
     my ( $self, $env ) = @_;
 
     my $path_match = $self->path || '/';
-    my $path = $env->{PATH_INFO};
+    my $path = $env->{PATH_INFO} || '/';
 
     for ($path) {
         my $matched
