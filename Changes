@@ -1,7 +1,8 @@
 # Change file for Plack::Middleware::TemplateToolkit
 
 0.11
-    Use the same configuration options as Template Toolkit
+    Use same configuration options as Template Toolkit
+    Introduced $env->{'tt.vars'}
 
 0.1
     Renamed to Plack::Middleware::TemplateToolkit

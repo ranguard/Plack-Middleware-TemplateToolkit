@@ -36,7 +36,7 @@ sub prepare_app {
         );
     } elsif ( ref $self->vars ne 'CODE' ) {
         my $vars = $self->vars;
-        $self->vars( sub {$vars} );
+        $self->vars( sub { $vars } );
     }
 
     die 'No INCLUDE_PATH supplied' unless $self->INCLUDE_PATH;
@@ -91,8 +91,9 @@ sub _handle_template {
 
     $path =~ s{^/}{};    # Do not want to enable absolute paths
 
-    my $vars = $self->vars->($req);
-    my $res = $self->process_template( $path, 200, $vars );
+    $self->_set_vars( $req );
+
+    my $res = $self->process_template( $path, 200, $env->{'tt.vars'} );
     if ( ref $res ) {
         return $res;
     } else {
@@ -123,15 +124,31 @@ sub process_template {
     }
 }
 
+sub _set_vars {
+    my ( $self, $req ) = @_;
+    my $env = $req->env;
+
+    my $vars = $self->vars->($req); # TODO: catch if this fails?
+
+    if ( $env->{'tt.vars'} ) {
+       foreach ( keys %$vars ) {
+           $env->{'tt.vars'}->{$_} = $vars->{$_};
+       }
+    } else {
+        $env->{'tt.vars'} = $vars;
+    }
+}
+
 sub _process_error {
     my ( $self, $req, $code, $type, $error ) = @_;
 
     return [ $code, [ 'Content-Type' => $type ], [$error] ]
         unless $self->{$code};
 
-    my $vars = $self->vars->($req);
-    my $res  = $self->process_template( $self->{$code}, $code,
-        { %$vars, error => $error } );
+    $self->_set_vars( $req );
+    $req->env->{'tt.vars'}->{'error'} = $error;
+    my $res  = $self->process_template( $self->{$code}, $code, 
+        $req->env->{'tt.vars'} );
 
     if ( ref $res ) {
         return $res;
@@ -199,14 +216,16 @@ As L<Plack::Middleware> derives from L<Plack::Component> you can also use
 this as simple application. If you just want to serve files via Template
 Toolkit, treat this module as if it was called Plack::App::TemplateToolkit.
 
-By default, the QUERY_STRING params are available to the templates, but the
-more you use these the harder it could be to migrate later so you might want to
-look at a propper framework such as L<Catalyst> if you do want to use them:
-
-  [% params.get('field') %] params is a L<Hash::MultiValue>
-
 You can mix this middleware with other Plack::App applications and
 Plack::Middleware which you will find on CPAN.
+
+This middleware reads and sets the PSGI environment variable tt.vars for
+variables passed to templates. By default, the QUERY_STRING params are
+available to the templates, but the more you use these the harder it could be
+to migrate later so you might want to look at a propper framework such as
+L<Catalyst> if you do want to use them:
+
+  [% params.get('field') %] params is a L<Hash::MultiValue>
 
 =head1 CONFIGURATIONS
 
@@ -245,6 +264,8 @@ Specify the default Content-Type header. Defaults to to text/html.
 Specify a hash reference with template variables or a code reference that
 gets a L<Plack::Request> objects and returns a hash reference with template
 variables. By default only the QUERY_STRING params are provided as 'params'.
+Templates variables specified by this option are added to existing template
+variables in the tt.vars environment variable.
 
 =item dir_index
 

@@ -139,18 +139,39 @@ app_tests
     }
     ];
 
+$app = Plack::Middleware::TemplateToolkit->new(
+    INCLUDE_PATH => $root, POST_CHOMP => 1 );
+
 app_tests 
     app => builder {
         enable sub { my $app = shift; sub { 
             my $env = shift;
-            $env->{PATH_INFO} = '';
+            # test for empty PATH_INFO
+            $env->{PATH_INFO} = '' if $env->{PATH_INFO} eq '/index.html'; 
             $app->($env);
         } };
         $app;
     },
     tests => [{
         name    => 'use as plain app',
-        request => [ GET => '' ],
+        request => [ GET => '/index.html' ],
+        content => 'Page value',
+        code    => 200,
+    }];
+
+app_tests 
+    app => builder {
+        enable sub { my $app = shift; sub { 
+            my $env = shift;
+            $env->{'tt.vars'} = { bar => 'Do' };
+            $app->($env);
+        } };
+        $app;
+    },
+    tests => [{
+        name    => 'with mixed variable sources',
+        request => [ GET => '/vars.html?foo=Ho' ],
+        content => 'HoDo',
         code    => 200,
     }];
 
