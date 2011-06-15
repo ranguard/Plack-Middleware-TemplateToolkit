@@ -26,6 +26,7 @@ sub prepare_app {
     my ($self) = @_;
 
     $self->dir_index('index.html')   unless $self->dir_index;
+    $self->pass_through(0)           unless defined $self->pass_through;
     $self->default_type('text/html') unless $self->default_type;
 
     if ( not ref $self->vars ) {
