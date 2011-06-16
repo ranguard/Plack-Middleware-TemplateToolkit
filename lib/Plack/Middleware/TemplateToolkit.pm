@@ -8,19 +8,38 @@ use parent 'Plack::Middleware';
 use Plack::Request 0.994;
 use Plack::MIME;
 use Template 2;
+use Carp;
 
 # Configuration options as described in Template::Manual::Config
 our @TT_CONFIG;
+our @DEPRECATED;
 BEGIN { @TT_CONFIG = qw(START_TAG END_TAG TAG_STYLE PRE_CHOMP POST_CHOMP TRIM
 INTERPOLATE ANYCASE INCLUDE_PATH DELIMITER ABSOLUTE RELATIVE DEFAULT BLOCKS
 VIEWS AUTO_RESET RECURSION VARIABLES CONSTANTS CONSTANT_NAMESPACE NAMESPACE
 PRE_PROCESS POST_PROCESS PROCESS WRAPPER ERROR EVAL_PERL OUTPUT OUTPUT_PATH
 STRICT DEBUG DEBUG_FORMAT CACHE_SIZE STAT_TTL COMPILE_EXT COMPILE_DIR PLUGINS
 PLUGIN_BASE LOAD_PERL FILTERS LOAD_TEMPLATES LOAD_PLUGINS LOAD_FILTERS TOLERANT
-SERVICE CONTEXT STASH PARSER GRAMMAR); }
+SERVICE CONTEXT STASH PARSER GRAMMAR);
+  @DEPRECATED= qw(root pre_process process eval_perl interpolate post_chomp);
+  no strict 'refs';
+  foreach my $name (@DEPRECATED) {
+      *{"Plack::Middleware::TemplateToolkit::$name"} = sub {
+          my $p = 'Plack::Middleware::TemplateToolkit';
+          croak "${p}::$name is deprecated, use ::".uc($name);
+      }
+  }
+  sub new { # only needed to catch deprecated accessors. should be removed.
+    my $self = Plack::Component::new(@_);
+    no strict 'refs';
+    foreach ( grep { defined $self->{$_} } @DEPRECATED ) {
+        $self->$_;
+    }
+    $self;
+  }
+} 
 
-use Plack::Util::Accessor (qw(dir_index path extension content_type 
-       default_type tt pass_through 404 vars),@TT_CONFIG);
+use Plack::Util::Accessor (qw(dir_index path extension content_type default_type
+    tt pass_through utf8_downgrade 404 vars),@TT_CONFIG);
 
 sub prepare_app {
     my ($self) = @_;
@@ -131,6 +150,7 @@ sub process_template {
             Plack::MIME->mime_type($1) if $template =~ /(\.\w{1,6})$/;
             }
             || $self->default_type;
+        utf8::downgrade($content) if $self->utf8_downgrade;
         return [ $code, [ 'Content-Type' => $type ], [$content] ];
     } else {
         return $self->tt->error->as_string;
