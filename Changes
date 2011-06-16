@@ -4,6 +4,7 @@
     Use same configuration options as Template Toolkit
     Introduced $env->{'tt.vars'}
     More error handling
+    Fixed UTF8 handling
 
 0.1
     Renamed to Plack::Middleware::TemplateToolkit

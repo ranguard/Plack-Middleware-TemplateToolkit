@@ -10,6 +10,7 @@ use Plack::MIME;
 use Template 2;
 use Scalar::Util qw(blessed);
 use HTTP::Status qw(status_message);
+use Encode;
 use Carp;
 
 # Configuration options as described in Template::Manual::Config
@@ -41,7 +42,7 @@ SERVICE CONTEXT STASH PARSER GRAMMAR);
 } 
 
 use Plack::Util::Accessor (qw(dir_index path extension content_type default_type
-    tt pass_through utf8_downgrade vars),@TT_CONFIG);
+    tt pass_through utf8_downgrade utf8_allow vars),@TT_CONFIG);
 
 sub prepare_app {
     my ($self) = @_;
@@ -107,8 +108,12 @@ sub process_template {
             Plack::MIME->mime_type($1) if $template =~ /(\.\w{1,6})$/;
             }
             || $self->default_type;
-        # this undocumented option will unlikely fix you app but it may help:
-        utf8::downgrade($content) if $self->utf8_downgrade;
+        if ( not $self->utf8_allow ) {
+            $content = encode_utf8($content); 
+        } elsif ( $self->utf8_downgrade ) {
+            # this undocumented option does not fix but makes errors visible
+            utf8::downgrade($content);
+        }
         return [ $code, [ 'Content-Type' => $type ], [$content] ];
     } else {
         return $self->tt->error->as_string;
@@ -331,6 +336,15 @@ Directly set an instance of L<Template> instead of creating a new one:
 
   my $tt = Template->new( %tt_options );
   Plack::Middleware::TemplateToolkit->new( tt => $tt );
+ 
+=item utf8_allow
+
+PSGI expects the content body to be a byte stream, but Template Toolkit
+is best used with templates and variables as UTF8 strings. For this reason
+processed templates are encoded to UTF8 byte streams unless you enable this
+options. It is then up to you to ensure that only byte streams are emitted
+by your PSGI application. It is recommended to use L<Plack::Middleware::Lint>
+and test with Unicode characters or your application will likely fail.
 
 =back
 
