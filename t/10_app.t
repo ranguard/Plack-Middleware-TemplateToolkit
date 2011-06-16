@@ -5,6 +5,7 @@ use Plack::Middleware::TemplateToolkit;
 use HTTP::Request;
 use File::Spec;
 use Plack::Middleware::ErrorDocument;
+use Template;
 
 BEGIN {
     use lib "t";
@@ -56,6 +57,22 @@ app_tests
         code    => 500
     }
     ];
+
+app_tests
+    app => Plack::Middleware::TemplateToolkit->new(
+        INCLUDE_PATH => $root, POST_CHOMP => 1,
+        path         => qr{^/ind},
+    ),
+    tests => [{
+        name    => 'Basic request',
+        request => [ GET => '/index.html' ],
+        content => 'Page value',
+        headers => { 'Content-Type' => 'text/html', },
+    },{   
+        name    => 'Unmatched request',
+        request => [ GET => '/style.css' ],
+        code    => 404,
+    }];
 
 app_tests
     app => Plack::Middleware::TemplateToolkit->new(
@@ -124,20 +141,21 @@ app_tests
     }
     ];
 
+my $template = Template->new( INCLUDE_PATH => $root );
+
 app_tests 
     app => Plack::Middleware::TemplateToolkit->new(
-        INCLUDE_PATH => $root,
+        tt   => $template,
         vars => sub {
             my $req = shift;
             return { foo => 'Hi, ', bar => $req->param('who') };
         }
-    )->to_app(),
-    tests => [
-    {   name    => 'Variables in templates',
+    ),
+    tests => [{   
+        name    => 'Variables in templates',
         request => [ GET => '/vars.html?who=you' ],
         content => 'Hi, you',
-    }
-    ];
+    }];
 
 $app = Plack::Middleware::TemplateToolkit->new(
     INCLUDE_PATH => $root, POST_CHOMP => 1 );

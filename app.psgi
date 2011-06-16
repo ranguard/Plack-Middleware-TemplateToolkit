@@ -28,7 +28,7 @@ builder {
 
     # Templates
     enable "Plack::Middleware::Template",
-        root => $root;
+        INCLUDE_PATH => $root;
 
     $app;
 }

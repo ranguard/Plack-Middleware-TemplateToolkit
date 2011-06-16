@@ -40,15 +40,22 @@ sub prepare_app {
         $self->vars( sub { $vars } );
     }
 
-    die 'No INCLUDE_PATH supplied' unless $self->INCLUDE_PATH;
-
     my $config = { };
     foreach ( @TT_CONFIG ) {
-        $config->{$_} = $self->$_ if $self->$_;
+        next unless $self->$_;
+        $config->{$_} = $self->$_;
+        $self->$_(undef); # don't initialize twice
     }
 
-    # create Template object
-    $self->tt( Template->new($config) );
+    if ( $self->tt ) {
+        die 'tt must be a Template instance' 
+            unless UNIVERSAL::isa( $self->tt, 'Template' );
+        die 'Either specify a template with tt or Template options, not both'
+            if %$config;
+    } else {
+        die 'No INCLUDE_PATH supplied' unless $config->{INCLUDE_PATH};
+        $self->tt( Template->new($config) );
+    }
 }
 
 sub call {    # adopted from Plack::Middleware::Static
@@ -59,16 +66,22 @@ sub call {    # adopted from Plack::Middleware::Static
         return $res;
     }
 
-    return $self->app->($env);
+    if ( $self->app ) {
+        $res = $self->app->($env);
+        # TODO: if $res->[0] == 404 and catch_errors: process error message
+    } else {
+        my $req = Plack::Request->new( $env );
+        $res = $self->_process_error( $req, 404, 'text/plain', 'Not found' );
+    }
 
-    # TODO: catch errors from $self->app and transform them if required
+    $res;
 }
 
 sub _handle_template {
     my ( $self, $env ) = @_;
 
-    my $path_match = $self->path || '/';
     my $path = $env->{PATH_INFO} || '/';
+    my $path_match = $self->path || '/';
 
     for ($path) {
         my $matched
@@ -85,7 +98,6 @@ sub _handle_template {
 
     my $extension = $self->extension;
     if ( $extension and $path !~ /${extension}$/ ) {
-
         # TODO: we may want another code (forbidden) and message here
         return $self->_process_error( $req, 404, 'text/plain', 'Not found' );
     }
@@ -151,21 +163,20 @@ sub _process_error {
     my $res  = $self->process_template( $self->{$code}, $code, 
         $req->env->{'tt.vars'} );
 
-    if ( ref $res ) {
-        return $res;
-    } else {
-
+    if ( not ref $res ) {
         # processing error document failed: result in a 500 error
         my $type = $self->content_type || $self->default_type;
         if ( $code eq 500 ) {
-            return [ 500, [ 'Content-Type' => $type ], [$res] ];
+            $res = [ 500, [ 'Content-Type' => $type ], [$res] ];
         } else {
             if ( ref $req->logger ) {
                 $req->logger->( { level => 'warn', message => $res } );
             }
-            return $self->_process_error( $req, 500, $type, $res );
+            $res = $self->_process_error( $req, 500, $type, $res );
         }
     }
+
+    return $res;
 }
 
 1;
@@ -279,12 +290,24 @@ the incoming request path matches with the C<path> but the requested template
 file is not found. Disabled by default, so all matching requests result in
 a valid response with status code 200, 404, or 500.
 
+=item tt
+
+Directly set an instance of L<Template> instead of creating a new one:
+
+
+  Plack::Middleware::TemplateToolkit->new( %tt_options );
+
+  # is equivalent to:
+
+  my $tt = Template->new( %tt_options );
+  Plack::Middleware::TemplateToolkit->new( tt => $tt );
+
 =back
 
 In addition you can specify templates for error codes, for instance:
 
   Plack::Middleware::TemplateToolkit->new(
-      root => '/path/to/htdocs/',
+      INCLUDE_PATH => '/path/to/htdocs/',
       404  => 'page_not_found.html' # = /path/to/htdocs/page_not_found.html
   );
 
@@ -296,7 +319,7 @@ with HTTP status code 500 is returned, possibly also as template.
 In addition to the call() method derived from L<Plack::Middleware>, this
 class defines the following methods for internal use.
 
-=head2 process_template($template, $code, \%vars)
+=head2 process_template ( $template, $code, \%vars )
 
 Calls the process() method of L<Template> and returns the output in a PSGI
 response object on success. The first parameter indicates the input template's

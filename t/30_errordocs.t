@@ -88,4 +88,22 @@ app_tests
     }
     ];
 
+app_tests
+    app => Plack::Middleware::TemplateToolkit->new(
+        INCLUDE_PATH => $root, 
+        POST_CHOMP => 1,
+        404  => '404.html',
+        path => sub { shift =~ qr{^/ind} },
+    ),
+    tests => [{
+        name    => 'Path checked via sub',
+        request => [ GET => '/index.html' ],
+        content => 'Page value',
+    },{   
+        name    => 'Unmatched request, 404 as template',
+        request => [ GET => '/style.css' ],
+        code    => 404,
+        content => '404-page',
+    }];
+
 done_testing;
