@@ -1,6 +1,6 @@
 # Change file for Plack::Middleware::TemplateToolkit
 
-0.11
+0.12
     Use same configuration options as Template Toolkit
     Introduced $env->{'tt.vars'}
     More error handling

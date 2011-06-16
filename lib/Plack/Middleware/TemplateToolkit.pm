@@ -8,6 +8,8 @@ use parent 'Plack::Middleware';
 use Plack::Request 0.994;
 use Plack::MIME;
 use Template 2;
+use Scalar::Util qw(blessed);
+use HTTP::Status qw(status_message);
 use Carp;
 
 # Configuration options as described in Template::Manual::Config
@@ -39,7 +41,7 @@ SERVICE CONTEXT STASH PARSER GRAMMAR);
 } 
 
 use Plack::Util::Accessor (qw(dir_index path extension content_type default_type
-    tt pass_through utf8_downgrade 404 vars),@TT_CONFIG);
+    tt pass_through utf8_downgrade vars),@TT_CONFIG);
 
 sub prepare_app {
     my ($self) = @_;
@@ -90,10 +92,77 @@ sub call {    # adopted from Plack::Middleware::Static
         # TODO: if $res->[0] == 404 and catch_errors: process error message
     } else {
         my $req = Plack::Request->new( $env );
-        $res = $self->_process_error( $req, 404, 'text/plain', 'Not found' );
+        $res = $self->process_error( 404, 'Not found', 'text/plain', $req );
     }
 
     $res;
+}
+
+sub process_template {
+    my ( $self, $template, $code, $vars ) = @_;
+
+    my $content;
+    if ( $self->tt->process( $template, $vars, \$content ) ) {
+        my $type = $self->content_type || do {
+            Plack::MIME->mime_type($1) if $template =~ /(\.\w{1,6})$/;
+            }
+            || $self->default_type;
+        # this undocumented option will unlikely fix you app but it may help:
+        utf8::downgrade($content) if $self->utf8_downgrade;
+        return [ $code, [ 'Content-Type' => $type ], [$content] ];
+    } else {
+        return $self->tt->error->as_string;
+    }
+}
+
+sub process_error {
+    my ( $self, $code, $error, $type, $req ) = @_;
+
+    $code = 500 unless $code && $code =~ /^\d\d\d$/;
+    $error = status_message($code) unless $error;
+    $type = ($self->content_type || $self->default_type || 'text/plain') unless $type;
+
+    # plain error without template
+    return [ $code, [ 'Content-Type' => $type ], [ $error ] ]
+        unless $self->{$code} and $self->tt;
+
+    $req = Plack::Request->new( { 'tt.vars' => { } } )
+        unless blessed $req && $req->isa('Plack::Request');
+    $self->_set_vars( $req );
+
+    $req->env->{'tt.vars'}->{'error'} = $error;
+    my $res = $self->process_template( $self->{$code}, $code, 
+         $req->env->{'tt.vars'} );
+
+    if ( not ref $res ) {
+        # processing error document failed: result in a 500 error
+        if ( $code eq 500 ) {
+            $res = [ 500, [ 'Content-Type' => $type ], [ $res ] ];
+        } else {
+            if ( ref $req->logger ) {
+                $req->logger->( { level => 'warn', message => $res } );
+            }
+            $res = $self->process_error( 500, $res, $type, $req );
+        }
+    }
+
+    return $res;
+}
+
+sub _set_vars {
+    my ( $self, $req ) = @_;
+    my $env = $req->env;
+
+    # TODO: $self->vars may die if it's broken. Should be catch this?
+    my $vars = $self->vars->($req) if defined $self->{vars};
+
+    if ( $env->{'tt.vars'} ) {
+       foreach ( keys %$vars ) {
+           $env->{'tt.vars'}->{$_} = $vars->{$_};
+       }
+    } else {
+        $env->{'tt.vars'} = $vars;
+    }
 }
 
 sub _handle_template {
@@ -118,7 +187,7 @@ sub _handle_template {
     my $extension = $self->extension;
     if ( $extension and $path !~ /${extension}$/ ) {
         # TODO: we may want another code (forbidden) and message here
-        return $self->_process_error( $req, 404, 'text/plain', 'Not found' );
+        return $self->process_error( 404, 'Not found', 'text/plain', $req );
     }
 
     $path =~ s{^/}{};    # Do not want to enable absolute paths
@@ -131,72 +200,14 @@ sub _handle_template {
     } else {
         my $type = $self->content_type || $self->default_type;
         if ( $res =~ /file error .+ not found/ ) {
-            return $self->_process_error( $req, 404, $type, $res );
+            return $self->process_error( 404, $res, $type, $req );
         } else {
             if ( ref $req->logger ) {
                 $req->logger->( { level => 'warn', message => $res } );
             }
-            return $self->_process_error( $req, 500, $type, $res );
+            return $self->process_error( 500, $res, $type, $req );
         }
     }
-}
-
-sub process_template {
-    my ( $self, $template, $code, $vars ) = @_;
-
-    my $content;
-    if ( $self->tt->process( $template, $vars, \$content ) ) {
-        my $type = $self->content_type || do {
-            Plack::MIME->mime_type($1) if $template =~ /(\.\w{1,6})$/;
-            }
-            || $self->default_type;
-        utf8::downgrade($content) if $self->utf8_downgrade;
-        return [ $code, [ 'Content-Type' => $type ], [$content] ];
-    } else {
-        return $self->tt->error->as_string;
-    }
-}
-
-sub _set_vars {
-    my ( $self, $req ) = @_;
-    my $env = $req->env;
-
-    my $vars = $self->vars->($req); # TODO: catch if this fails?
-
-    if ( $env->{'tt.vars'} ) {
-       foreach ( keys %$vars ) {
-           $env->{'tt.vars'}->{$_} = $vars->{$_};
-       }
-    } else {
-        $env->{'tt.vars'} = $vars;
-    }
-}
-
-sub _process_error {
-    my ( $self, $req, $code, $type, $error ) = @_;
-
-    return [ $code, [ 'Content-Type' => $type ], [$error] ]
-        unless $self->{$code};
-
-    $self->_set_vars( $req );
-    $req->env->{'tt.vars'}->{'error'} = $error;
-    my $res  = $self->process_template( $self->{$code}, $code, 
-        $req->env->{'tt.vars'} );
-
-    if ( not ref $res ) {
-        # processing error document failed: result in a 500 error
-        my $type = $self->content_type || $self->default_type;
-        if ( $code eq 500 ) {
-            $res = [ 500, [ 'Content-Type' => $type ], [$res] ];
-        } else {
-            if ( ref $req->logger ) {
-                $req->logger->( { level => 'warn', message => $res } );
-            }
-            $res = $self->_process_error( $req, 500, $type, $res );
-        }
-    }
-
-    return $res;
 }
 
 1;
@@ -314,7 +325,6 @@ a valid response with status code 200, 404, or 500.
 
 Directly set an instance of L<Template> instead of creating a new one:
 
-
   Plack::Middleware::TemplateToolkit->new( %tt_options );
 
   # is equivalent to:
@@ -346,6 +356,12 @@ response object on success. The first parameter indicates the input template's
 file name. The second parameter is the HTTP status code to return on success.
 A reference to a hash with template variables may be passed as third parameter.
 On failure this method returns an error message instead of a reference.
+
+=head2 process_error ( $code, $error, $type, $req ) = @_;
+
+Returns a PSGI response to be used as error message. Error templates are used
+if they have been specified and prepare_app has been called before. This method 
+tries hard not to fail: undefined parameters are replaced by default values.
 
 =head1 SEE ALSO
 
