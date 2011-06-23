@@ -23,17 +23,20 @@ PRE_PROCESS POST_PROCESS PROCESS WRAPPER ERROR EVAL_PERL OUTPUT OUTPUT_PATH
 STRICT DEBUG DEBUG_FORMAT CACHE_SIZE STAT_TTL COMPILE_EXT COMPILE_DIR PLUGINS
 PLUGIN_BASE LOAD_PERL FILTERS LOAD_TEMPLATES LOAD_PLUGINS LOAD_FILTERS TOLERANT
 SERVICE CONTEXT STASH PARSER GRAMMAR);
+  # the following ugly code is only needed to catch deprecated accessors
   @DEPRECATED= qw(root pre_process process eval_perl interpolate post_chomp);
   no strict 'refs';
+  my $module = "Plack::Middleware::TemplateToolkit";
   foreach my $name (@DEPRECATED) {
-      *{"Plack::Middleware::TemplateToolkit::$name"} = sub {
-          my $p = 'Plack::Middleware::TemplateToolkit';
-          croak "${p}::$name is deprecated, use ::".uc($name);
+      *{$module."::$name"} = sub {
+          my $correct = uc($name);
+          carp $module."$name is deprecated, use ::$correct";
+          my $method = $module."::$correct";
+          &$method(@_);
       }
   }
-  sub new { # only needed to catch deprecated accessors. should be removed.
+  sub new {
     my $self = Plack::Component::new(@_);
-    no strict 'refs';
     foreach ( grep { defined $self->{$_} } @DEPRECATED ) {
         $self->$_;
     }
@@ -83,14 +86,14 @@ sub prepare_app {
 sub call {    # adopted from Plack::Middleware::Static
     my ( $self, $env ) = @_;
 
-    my $res = $self->_handle_template($env); # returns undef only if no match
+    my $res = $self->_handle_template($env);
     if ( $res && not( $self->pass_through and $res->[0] == 404 ) ) {
         return $res;
     }
 
     if ( $self->app ) {
         $res = $self->app->($env);
-        # TODO: if $res->[0] == 404 and catch_errors: process error message
+        # TODO: if $res->[0] ne 200 and catch_errors: process error message
     } else {
         my $req = Plack::Request->new( $env );
         $res = $self->process_error( 404, 'Not found', 'text/plain', $req );
@@ -198,6 +201,8 @@ sub _handle_template {
     $path =~ s{^/}{};    # Do not want to enable absolute paths
 
     $self->_set_vars( $req );
+
+    $env->{'tt.template'} = $path; # for debug inspection (not tested)
 
     my $res = $self->process_template( $path, 200, $env->{'tt.vars'} );
     if ( ref $res ) {

@@ -1,10 +1,14 @@
 # Change file for Plack::Middleware::TemplateToolkit
 
+0.15
+    Warn on deprecated accessors
+	Introduced $env->{'tt.template'}
+
 0.12
     Use same configuration options as Template Toolkit
     Introduced $env->{'tt.vars'}
     More error handling
-    Fixed UTF8 handling
+    Fixed some UTF8 handling
 
 0.1
     Renamed to Plack::Middleware::TemplateToolkit
