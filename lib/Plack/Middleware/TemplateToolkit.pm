@@ -16,36 +16,45 @@ use Carp;
 # Configuration options as described in Template::Manual::Config
 our @TT_CONFIG;
 our @DEPRECATED;
-BEGIN { @TT_CONFIG = qw(START_TAG END_TAG TAG_STYLE PRE_CHOMP POST_CHOMP TRIM
-INTERPOLATE ANYCASE INCLUDE_PATH DELIMITER ABSOLUTE RELATIVE DEFAULT BLOCKS
-VIEWS AUTO_RESET RECURSION VARIABLES CONSTANTS CONSTANT_NAMESPACE NAMESPACE
-PRE_PROCESS POST_PROCESS PROCESS WRAPPER ERROR EVAL_PERL OUTPUT OUTPUT_PATH
-STRICT DEBUG DEBUG_FORMAT CACHE_SIZE STAT_TTL COMPILE_EXT COMPILE_DIR PLUGINS
-PLUGIN_BASE LOAD_PERL FILTERS LOAD_TEMPLATES LOAD_PLUGINS LOAD_FILTERS TOLERANT
-SERVICE CONTEXT STASH PARSER GRAMMAR);
-  # the following ugly code is only needed to catch deprecated accessors
-  @DEPRECATED= qw(root pre_process process eval_perl interpolate post_chomp);
-  no strict 'refs';
-  my $module = "Plack::Middleware::TemplateToolkit";
-  foreach my $name (@DEPRECATED) {
-      *{$module."::$name"} = sub {
-          my $correct = uc($name);
-          carp $module."$name is deprecated, use ::$correct";
-          my $method = $module."::$correct";
-          &$method(@_);
-      }
-  }
-  sub new {
-    my $self = Plack::Component::new(@_);
-    foreach ( grep { defined $self->{$_} } @DEPRECATED ) {
-        $self->$_;
-    }
-    $self;
-  }
-} 
 
-use Plack::Util::Accessor (qw(dir_index path extension content_type default_type
-    tt pass_through utf8_downgrade utf8_allow vars),@TT_CONFIG);
+BEGIN {
+    @TT_CONFIG = qw(START_TAG END_TAG TAG_STYLE PRE_CHOMP POST_CHOMP TRIM
+        INTERPOLATE ANYCASE INCLUDE_PATH DELIMITER ABSOLUTE RELATIVE DEFAULT
+        BLOCKS VIEWS AUTO_RESET RECURSION VARIABLES CONSTANTS
+        CONSTANT_NAMESPACE NAMESPACE PRE_PROCESS POST_PROCESS PROCESS WRAPPER
+        ERROR EVAL_PERL OUTPUT OUTPUT_PATH STRICT DEBUG DEBUG_FORMAT
+        CACHE_SIZE STAT_TTL COMPILE_EXT COMPILE_DIR PLUGINS PLUGIN_BASE
+        LOAD_PERL FILTERS LOAD_TEMPLATES LOAD_PLUGINS LOAD_FILTERS
+        TOLERANT SERVICE CONTEXT STASH PARSER GRAMMAR
+    );
+
+    # the following ugly code is only needed to catch deprecated accessors
+    @DEPRECATED
+        = qw(root pre_process process eval_perl interpolate post_chomp);
+    no strict 'refs';
+    my $module = "Plack::Middleware::TemplateToolkit";
+    foreach my $name (@DEPRECATED) {
+        *{ $module . "::$name" } = sub {
+            my $correct = uc($name);
+            carp $module. "$name is deprecated, use ::$correct";
+            my $method = $module . "::$correct";
+            &$method(@_);
+            }
+    }
+
+    sub new {
+        my $self = Plack::Component::new(@_);
+        foreach ( grep { defined $self->{$_} } @DEPRECATED ) {
+            $self->$_;
+        }
+        $self;
+    }
+}
+
+use Plack::Util::Accessor (
+    qw(dir_index path extension content_type default_type
+        tt pass_through utf8_downgrade utf8_allow vars), @TT_CONFIG
+);
 
 sub prepare_app {
     my ($self) = @_;
@@ -62,18 +71,18 @@ sub prepare_app {
         );
     } elsif ( ref $self->vars ne 'CODE' ) {
         my $vars = $self->vars;
-        $self->vars( sub { $vars } );
+        $self->vars( sub {$vars} );
     }
 
-    my $config = { };
-    foreach ( @TT_CONFIG ) {
+    my $config = {};
+    foreach (@TT_CONFIG) {
         next unless $self->$_;
         $config->{$_} = $self->$_;
-        $self->$_(undef); # don't initialize twice
+        $self->$_(undef);    # don't initialize twice
     }
 
     if ( $self->tt ) {
-        die 'tt must be a Template instance' 
+        die 'tt must be a Template instance'
             unless UNIVERSAL::isa( $self->tt, 'Template' );
         die 'Either specify a template with tt or Template options, not both'
             if %$config;
@@ -93,9 +102,10 @@ sub call {    # adopted from Plack::Middleware::Static
 
     if ( $self->app ) {
         $res = $self->app->($env);
+
         # TODO: if $res->[0] ne 200 and catch_errors: process error message
     } else {
-        my $req = Plack::Request->new( $env );
+        my $req = Plack::Request->new($env);
         $res = $self->process_error( 404, 'Not found', 'text/plain', $req );
     }
 
@@ -112,8 +122,9 @@ sub process_template {
             }
             || $self->default_type;
         if ( not $self->utf8_allow ) {
-            $content = encode_utf8($content); 
+            $content = encode_utf8($content);
         } elsif ( $self->utf8_downgrade ) {
+
             # this undocumented option does not fix but makes errors visible
             utf8::downgrade($content);
         }
@@ -128,24 +139,26 @@ sub process_error {
 
     $code = 500 unless $code && $code =~ /^\d\d\d$/;
     $error = status_message($code) unless $error;
-    $type = ($self->content_type || $self->default_type || 'text/plain') unless $type;
+    $type = ( $self->content_type || $self->default_type || 'text/plain' )
+        unless $type;
 
     # plain error without template
-    return [ $code, [ 'Content-Type' => $type ], [ $error ] ]
+    return [ $code, [ 'Content-Type' => $type ], [$error] ]
         unless $self->{$code} and $self->tt;
 
-    $req = Plack::Request->new( { 'tt.vars' => { } } )
+    $req = Plack::Request->new( { 'tt.vars' => {} } )
         unless blessed $req && $req->isa('Plack::Request');
-    $self->_set_vars( $req );
+    $self->_set_vars($req);
 
     $req->env->{'tt.vars'}->{'error'} = $error;
-    my $res = $self->process_template( $self->{$code}, $code, 
-         $req->env->{'tt.vars'} );
+    my $res = $self->process_template( $self->{$code}, $code,
+        $req->env->{'tt.vars'} );
 
     if ( not ref $res ) {
+
         # processing error document failed: result in a 500 error
         if ( $code eq 500 ) {
-            $res = [ 500, [ 'Content-Type' => $type ], [ $res ] ];
+            $res = [ 500, [ 'Content-Type' => $type ], [$res] ];
         } else {
             if ( ref $req->logger ) {
                 $req->logger->( { level => 'warn', message => $res } );
@@ -165,9 +178,9 @@ sub _set_vars {
     my $vars = $self->vars->($req) if defined $self->{vars};
 
     if ( $env->{'tt.vars'} ) {
-       foreach ( keys %$vars ) {
-           $env->{'tt.vars'}->{$_} = $vars->{$_};
-       }
+        foreach ( keys %$vars ) {
+            $env->{'tt.vars'}->{$_} = $vars->{$_};
+        }
     } else {
         $env->{'tt.vars'} = $vars;
     }
@@ -176,8 +189,8 @@ sub _set_vars {
 sub _handle_template {
     my ( $self, $env ) = @_;
 
-    my $path = $env->{PATH_INFO} || '/';
-    my $path_match = $self->path || '/';
+    my $path       = $env->{PATH_INFO} || '/';
+    my $path_match = $self->path       || '/';
 
     for ($path) {
         my $matched
@@ -194,15 +207,16 @@ sub _handle_template {
 
     my $extension = $self->extension;
     if ( $extension and $path !~ /${extension}$/ ) {
+
         # TODO: we may want another code (forbidden) and message here
         return $self->process_error( 404, 'Not found', 'text/plain', $req );
     }
 
     $path =~ s{^/}{};    # Do not want to enable absolute paths
 
-    $self->_set_vars( $req );
+    $self->_set_vars($req);
 
-    $env->{'tt.template'} = $path; # for debug inspection (not tested)
+    $env->{'tt.template'} = $path;    # for debug inspection (not tested)
 
     my $res = $self->process_template( $path, 200, $env->{'tt.vars'} );
     if ( ref $res ) {
