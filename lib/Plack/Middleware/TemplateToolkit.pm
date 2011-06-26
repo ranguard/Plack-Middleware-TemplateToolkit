@@ -407,6 +407,6 @@ L<Plack>, L<Template>
 
 =head1 AUTHORS
 
-Leo Lapworth and Jakob Voss
+Leo Lapworth (started) and Jakob Voss (most of the work!)
 
 =cut
