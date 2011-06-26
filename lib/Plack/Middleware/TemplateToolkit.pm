@@ -280,9 +280,9 @@ A minimal L<.psgi|PSGI> script as stand-alone application:
 Enable this middleware or application to allow your Plack-based application to
 serve files processed through L<Template Toolkit|Template> (TT). The idea
 behind this module is to provide content that is ALMOST static, but where
-having the power of TT can make the content easier to manage. You probably only
-want to use this for the simpliest of sites, but it should be easy enough to
-migrate to something more significant later.
+having the power of TT can make the content easier to manage. You probably 
+only want to use this for the simpliest of sites, but it should be easy 
+enough to migrate to something more significant later.
 
 As L<Plack::Middleware> derives from L<Plack::Component> you can also use
 this as simple application. If you just want to serve files via Template
@@ -360,7 +360,7 @@ Directly set an instance of L<Template> instead of creating a new one:
 
   my $tt = Template->new( %tt_options );
   Plack::Middleware::TemplateToolkit->new( tt => $tt );
- 
+
 =item utf8_allow
 
 PSGI expects the content body to be a byte stream, but Template Toolkit
