@@ -29,8 +29,7 @@ BEGIN {
     );
 
     # the following ugly code is only needed to catch deprecated accessors
-    @DEPRECATED
-        = qw(root pre_process process eval_perl interpolate post_chomp);
+    @DEPRECATED = qw(pre_process process eval_perl interpolate post_chomp);
     no strict 'refs';
     my $module = "Plack::Middleware::TemplateToolkit";
     foreach my $name (@DEPRECATED) {
@@ -44,6 +43,12 @@ BEGIN {
 
     sub new {
         my $self = Plack::Component::new(@_);
+
+        # Support 'root' config (matches MW::Static etc)
+        # if INCLUDE_PATH hasn't been defined
+        $self->INCLUDE_PATH( $self->root )
+            if !$self->INCLUDE_PATH() && $self->root;
+
         foreach ( grep { defined $self->{$_} } @DEPRECATED ) {
             $self->$_;
         }
@@ -53,7 +58,7 @@ BEGIN {
 
 use Plack::Util::Accessor (
     qw(dir_index path extension content_type default_type
-        tt pass_through utf8_downgrade utf8_allow vars), @TT_CONFIG
+        tt pass_through utf8_downgrade utf8_allow vars root), @TT_CONFIG
 );
 
 sub prepare_app {
