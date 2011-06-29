@@ -251,6 +251,8 @@ Plack::Middleware::TemplateToolkit - Serve files with Template Toolkit and Plack
 
     use Plack::Builder;
 
+    my $root = '/path/to/html_doc_root';
+
     builder {
 
         # Page to show when requested file is missing
