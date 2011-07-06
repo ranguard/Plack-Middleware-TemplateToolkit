@@ -57,8 +57,9 @@ BEGIN {
 }
 
 use Plack::Util::Accessor (
-    qw(dir_index path extension content_type default_type
-        tt pass_through utf8_downgrade utf8_allow vars root), @TT_CONFIG
+    qw(dir_index path extension content_type default_type tt root
+       pass_through utf8_downgrade utf8_allow vars request_vars), 
+    @TT_CONFIG
 );
 
 sub prepare_app {
@@ -181,6 +182,18 @@ sub _set_vars {
 
     # TODO: $self->vars may die if it's broken. Should be catch this?
     my $vars = $self->vars->($req) if defined $self->{vars};
+    my $rv   = $self->request_vars;
+    if ( $rv and not exists $vars->{request} ) {
+        if ( ref $rv ) {
+            $vars->{request} = { };
+            foreach ( @{ $self->request_vars } ) {
+                next unless $req->can($_);
+                $vars->{request}->{$_} = $req->$_;
+            }
+        } elsif ( $rv eq 'all' ) {
+            $vars->{request} = $req;
+        }
+    }
 
     if ( $env->{'tt.vars'} ) {
         foreach ( keys %$vars ) {
@@ -340,6 +353,15 @@ gets a L<Plack::Request> objects and returns a hash reference with template
 variables. By default only the QUERY_STRING params are provided as 'params'.
 Templates variables specified by this option are added to existing template
 variables in the tt.vars environment variable.
+
+=item request_vars
+
+Specify a list of request variables from L<Plack::Request> to be collected
+in a template variable 'request'. For instance C<<[path base]>> gives you
+the template variables C<request.path> and C<request.base>. Setting this
+parameter to 'all' gives you the original Plack::Request object, but this
+is unstable, bad practice because the object may change and your templates
+may damage the request object.
 
 =item dir_index
 

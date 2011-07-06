@@ -55,6 +55,11 @@ app_tests
         content => qr/^file error - parse error/,
         headers => { 'Content-Type' => 'text/html', },
         code    => 500
+    },
+    {   name    => 'no request_vars by default',
+        request => [ GET => '/req.html' ],
+        content => 'R:,,',
+        code    => 200
     }
     ];
 
@@ -118,7 +123,8 @@ app_tests
 app_tests
     app => Plack::Middleware::TemplateToolkit->new(
         INCLUDE_PATH => $root,
-        extension => 'html'
+        extension => 'html',
+        request_vars => 'all',
     )->to_app(),
     tests => [
     {   name    => 'Forbidden extension',
@@ -126,6 +132,10 @@ app_tests
         content => 'Not found',
         headers => { 'Content-Type' => 'text/plain', },
         code    => 404
+    },
+    {   name    => 'all request_vars',
+        request => [ GET => '/req.html?foo=bar' ],
+        content => qr{^R:Plack::Request[^,]+,GET,bar}
     }
     ];
 
@@ -143,19 +153,37 @@ app_tests
 
 my $template = Template->new( INCLUDE_PATH => $root );
 
-app_tests 
-    app => Plack::Middleware::TemplateToolkit->new(
+$app = Plack::Middleware::TemplateToolkit->new(
         tt   => $template,
         vars => sub {
             my $req = shift;
             return { foo => 'Hi, ', bar => $req->param('who') };
-        }
-    ),
+        },
+        request_vars => [qw(method parameters idontexist)],
+    );
+
+app_tests 
+    app => $app,
     tests => [{   
         name    => 'Variables in templates',
         request => [ GET => '/vars.html?who=you' ],
         content => 'Hi, you',
-    }];
+    },
+    {   name    => 'request_vars in addition',
+        request => [ GET => '/req.html?foo=bar' ],
+        content => qr{^R:HASH[^,]+,GET,bar}
+    }
+    ];
+
+$app->vars( sub { return { request => undef } } );
+
+app_tests app => $app->to_app(),
+    tests => [
+    {   name    => 'request_vars do not override vars',
+        request => [ GET => '/req.html?foo=bar' ],
+        content => 'R:,,'
+    }
+    ];
 
 $app = Plack::Middleware::TemplateToolkit->new(
     INCLUDE_PATH => $root, POST_CHOMP => 1 );
