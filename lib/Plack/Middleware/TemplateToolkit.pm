@@ -429,7 +429,7 @@ problems on your own.
 
 =back 
 
-It is highly recommended to use L<Plack::Middleware::Lint> and test you app
+It is highly recommended to use L<Plack::Middleware::Lint> and test your app
 with Unicode from several sources (templates, variables, parameters, ...).
 
 =back
