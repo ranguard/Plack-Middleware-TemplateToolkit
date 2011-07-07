@@ -11,6 +11,7 @@ use Template 2;
 use Scalar::Util qw(blessed);
 use HTTP::Status qw(status_message);
 use Encode;
+use Encode::DoubleEncodedUTF8;
 use Carp;
 
 # Configuration options as described in Template::Manual::Config
@@ -58,7 +59,7 @@ BEGIN {
 
 use Plack::Util::Accessor (
     qw(dir_index path extension content_type default_type tt root
-       pass_through utf8_downgrade utf8_allow vars request_vars), 
+       pass_through utf8 vars request_vars), 
     @TT_CONFIG
 );
 
@@ -68,6 +69,7 @@ sub prepare_app {
     $self->dir_index('index.html')   unless $self->dir_index;
     $self->pass_through(0)           unless defined $self->pass_through;
     $self->default_type('text/html') unless $self->default_type;
+    $self->utf8('fix')               unless defined $self->utf8;
 
     if ( not ref $self->vars ) {
         $self->vars(
@@ -127,11 +129,12 @@ sub process_template {
             Plack::MIME->mime_type($1) if $template =~ /(\.\w{1,6})$/;
             }
             || $self->default_type;
-        if ( not $self->utf8_allow ) {
-            $content = encode_utf8($content);
-        } elsif ( $self->utf8_downgrade ) {
-
-            # this undocumented option does not fix but makes errors visible
+        if ( $self->utf8 eq 'fix' ) {
+            $content = decode('utf-8-de', $content);
+            utf8::encode($content);
+        } elsif ( $self->utf8 eq 'encode' ) {
+            utf8::encode($content);
+        } elsif ( $self->utf8 eq 'downgrade' ) {
             utf8::downgrade($content);
         }
         return [ $code, [ 'Content-Type' => $type ], [$content] ];
@@ -313,6 +316,7 @@ to migrate later so you might want to look at a propper framework such as
 L<Catalyst> if you do want to use them:
 
   [% params.get('field') %] params is a L<Hash::MultiValue>
+  [% request.parameters.field %] configured with request_vars => ['parameters']
 
 =head1 CONFIGURATIONS
 
@@ -385,14 +389,48 @@ Directly set an instance of L<Template> instead of creating a new one:
   my $tt = Template->new( %tt_options );
   Plack::Middleware::TemplateToolkit->new( tt => $tt );
 
-=item utf8_allow
+=item utf8
 
-PSGI expects the content body to be a byte stream, but Template Toolkit
-is best used with templates and variables as UTF8 strings. For this reason
-processed templates are encoded to UTF8 byte streams unless you enable this
-options. It is then up to you to ensure that only byte streams are emitted
-by your PSGI application. It is recommended to use L<Plack::Middleware::Lint>
-and test with Unicode characters or your application will likely fail.
+If your templates or template variables are Unicode strings, the output must be
+encoded, because PSGI expects the content body to be a byte stream. The
+following options are supported:
+
+=over 4
+
+=item encode
+
+The output is encoded to UTF-8 bytes with C<utf8::encode>. This option is useful
+if your input contains non-ASCII characters, but it may lead to double encoded
+UTF-8 bytes, if you mix strings with UTF-8 flag and without.
+
+=item fix
+
+Fix double encoded UTF-8 bytes with L<Encode::DoubleEncodedUTF8> and then encode
+the output. This is the default option and recommended.
+
+=item allow
+
+Do not encode strings but possibly violate the PSGI specification by returning
+UTF-8 strings. If you use this option, it is up to you to ensure that only byte
+streams are emitted by your PSGI application, for instance by encoding with
+another middleware.
+
+=item downgrade
+
+Turn of the utf8 flag and convert the string to bytes in the native encoding.
+Fails if the original UTF-X sequence cannot be represented in the native 8 bit 
+encoding. You can use this option to detect errors but you should not use it
+in production.
+
+=item ignore
+
+Use the output of Template Toolkit as it is, so you must deal with Unicode 
+problems on your own.
+
+=back 
+
+It is highly recommended to use L<Plack::Middleware::Lint> and test you app
+with Unicode from several sources (templates, variables, parameters, ...).
 
 =back
 

@@ -157,7 +157,8 @@ $app = Plack::Middleware::TemplateToolkit->new(
         tt   => $template,
         vars => sub {
             my $req = shift;
-            return { foo => 'Hi, ', bar => $req->param('who') };
+            my $bar = $req->param('who');
+            return { foo => 'Hi, ', bar => $bar };
         },
         request_vars => [qw(method parameters idontexist)],
     );

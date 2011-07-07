@@ -1,5 +1,9 @@
 # Change file for Plack::Middleware::TemplateToolkit
 
+0.16
+    New parameter request_vars to inject request variables
+    Modified utf8 parameter, now fixes double encoding
+
 0.15
     Warn on deprecated accessors
 	Introduced $env->{'tt.template'}
