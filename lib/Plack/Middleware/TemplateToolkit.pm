@@ -70,16 +70,19 @@ sub prepare_app {
     $self->pass_through(0)           unless defined $self->pass_through;
     $self->default_type('text/html') unless $self->default_type;
     $self->utf8('fix')               unless defined $self->utf8;
+    $self->request_vars([])          unless defined $self->request_vars;
 
-    if ( not ref $self->vars ) {
+    if ( not $self->vars ) {
         $self->vars(
-            sub {
-                { shift->query_parameters }
-            }
+            sub { return { params => shift->query_parameters } }
         );
-    } elsif ( ref $self->vars ne 'CODE' ) {
+    } elsif ( ref $self->vars eq 'HASH' ) {
         my $vars = $self->vars;
-        $self->vars( sub {$vars} );
+        $self->vars(
+            sub { return $vars; }
+        ); 
+    } elsif ( ref $self->vars ne 'CODE' ) {
+        die 'vars must be a code or hash reference, if defined';
     }
 
     my $config = {};
@@ -123,7 +126,7 @@ sub call {    # adopted from Plack::Middleware::Static
 sub process_template {
     my ( $self, $template, $code, $vars ) = @_;
 
-    my $content;
+    my ( $content, $res );
     if ( $self->tt->process( $template, $vars, \$content ) ) {
         my $type = $self->content_type || do {
             Plack::MIME->mime_type($1) if $template =~ /(\.\w{1,6})$/;
@@ -137,10 +140,12 @@ sub process_template {
         } elsif ( $self->utf8 eq 'downgrade' ) {
             utf8::downgrade($content);
         }
-        return [ $code, [ 'Content-Type' => $type ], [$content] ];
+        $res = [ $code, [ 'Content-Type' => $type ], [$content] ];
     } else {
-        return $self->tt->error->as_string;
+        $res = $self->tt->error->as_string;
     }
+
+    return $res;
 }
 
 sub process_error {
@@ -160,53 +165,58 @@ sub process_error {
     $self->_set_vars($req);
 
     $req->env->{'tt.vars'}->{'error'} = $error;
-    my $res = $self->process_template( $self->{$code}, $code,
-        $req->env->{'tt.vars'} );
+    my $tpl = $self->{$code};
+    my $res = $self->process_template( $tpl, $code, $req->env->{'tt.vars'} );
 
-    if ( not ref $res ) {
-
+    unless ( ref $res ) {
         # processing error document failed: result in a 500 error
         if ( $code eq 500 ) {
             $res = [ 500, [ 'Content-Type' => $type ], [$res] ];
+            $tpl = undef;
         } else {
             if ( ref $req->logger ) {
                 $req->logger->( { level => 'warn', message => $res } );
             }
-            $res = $self->process_error( 500, $res, $type, $req );
+            ($res, $tpl) = $self->process_error( 500, $res, $type, $req );
         }
     }
 
-    return $res;
+    return wantarray ? ($res, $tpl) : $res;
 }
 
 sub _set_vars {
     my ( $self, $req ) = @_;
     my $env = $req->env;
 
-    # TODO: $self->vars may die if it's broken. Should be catch this?
-    my $vars = $self->vars->($req) if defined $self->{vars};
+    # we must not copy the vars by reference because
+    # otherwise we might modify the same object
+    # TODO: catch error if $self->vars does not return hash ref or dies?
+    my (%vars) = %{ $self->vars->($req) } if defined $self->vars;
+
     my $rv   = $self->request_vars;
-    if ( $rv and not exists $vars->{request} ) {
-        if ( ref $rv ) {
-            $vars->{request} = { };
+    unless ( exists $vars{request} ) {
+        if ( $rv eq 'all' ) {
+            $vars{request} = $req;
+        } elsif ( ref $rv and @$rv ) {
+            $vars{request} = { };
             foreach ( @{ $self->request_vars } ) {
                 next unless $req->can($_);
-                $vars->{request}->{$_} = $req->$_;
+                $vars{request}->{$_} = $req->$_;
             }
-        } elsif ( $rv eq 'all' ) {
-            $vars->{request} = $req;
         }
     }
 
     if ( $env->{'tt.vars'} ) {
-        foreach ( keys %$vars ) {
-            $env->{'tt.vars'}->{$_} = $vars->{$_};
+        # add to existing vars
+        foreach ( keys %vars ) {
+            $env->{'tt.vars'}->{$_} = $vars{$_};
         }
     } else {
-        $env->{'tt.vars'} = $vars;
+        $env->{'tt.vars'} = \%vars;
     }
 }
 
+# core function called once in 'call'
 sub _handle_template {
     my ( $self, $env ) = @_;
 
@@ -223,36 +233,41 @@ sub _handle_template {
 
     my $req = Plack::Request->new($env);
 
+    $env->{'tt.path'} = $req->path_info;
+
     $path = $req->path;
     $path .= $self->dir_index if $path =~ /\/$/;
+    $path =~ s{^/}{};    # Do not want to enable absolute paths
 
     my $extension = $self->extension;
     if ( $extension and $path !~ /${extension}$/ ) {
-
         # TODO: we may want another code (forbidden) and message here
-        return $self->process_error( 404, 'Not found', 'text/plain', $req );
+        my ($res, $tpl) = $self->process_error( 
+            404, 'Not found', 'text/plain', $req );
+        $env->{'tt.template'} = $tpl;
+        return $res;
     }
-
-    $path =~ s{^/}{};    # Do not want to enable absolute paths
 
     $self->_set_vars($req);
 
-    $env->{'tt.template'} = $path;    # for debug inspection (not tested)
+    my $tpl = $path;
+    my $res = $self->process_template( $path, 200, $env->{'tt.vars'}  );
 
-    my $res = $self->process_template( $path, 200, $env->{'tt.vars'} );
-    if ( ref $res ) {
-        return $res;
-    } else {
+    unless( ref $res ) {
         my $type = $self->content_type || $self->default_type;
         if ( $res =~ /file error .+ not found/ ) {
-            return $self->process_error( 404, $res, $type, $req );
+            ($res, $tpl) = $self->process_error( 404, $res, $type, $req );
         } else {
             if ( ref $req->logger ) {
                 $req->logger->( { level => 'warn', message => $res } );
             }
-            return $self->process_error( 500, $res, $type, $req );
+            ($res, $tpl) = $self->process_error( 500, $res, $type, $req );
         }
     }
+
+    $env->{'tt.template'} = $tpl; # not fully covered by unit tests
+
+    return $res;
 }
 
 1;
@@ -444,6 +459,28 @@ In addition you can specify templates for error codes, for instance:
 If a specified error templates could not be found and processed, an error
 with HTTP status code 500 is returned, possibly also as template.
 
+=head1 ENVIRONMENT
+
+This middleware inspects and/or manipulates the following variables from 
+the PSGI environment:
+
+=over 4
+
+=item tt.vars
+
+Injected as template variables if defined. Set to the template variables.
+
+=item tt.path
+
+Set to the template that was asked to process. This is equal to the local path
+(C<path_info> in L<Plack::Request>) if the request matched.
+
+=item tt.template
+
+Set to the template that has actually been processed.
+
+=back
+
 =head1 METHODS
 
 In addition to the call() method derived from L<Plack::Middleware>, this
@@ -462,6 +499,8 @@ On failure this method returns an error message instead of a reference.
 Returns a PSGI response to be used as error message. Error templates are used
 if they have been specified and prepare_app has been called before. This method 
 tries hard not to fail: undefined parameters are replaced by default values.
+In list context this returns a PSGI response and the actual template that has
+been used to create the error document.
 
 =head1 SEE ALSO
 

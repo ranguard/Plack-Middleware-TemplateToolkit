@@ -139,17 +139,22 @@ app_tests
     }
     ];
 
-app_tests
-    app => Plack::Middleware::TemplateToolkit->new(
+$app = Plack::Middleware::TemplateToolkit->new(
         INCLUDE_PATH => $root,
         vars => { foo => 'Hello', bar => ', world!' }
-    )->to_app(),
-    tests => [
-    {   name    => 'Variables in templates',
-        request => [ GET => '/vars.html' ],
-        content => 'Hello, world!',
-    }
-    ];
+    );
+
+# run twice to check that template does not modify vars
+foreach (qw(1 2)) {
+    app_tests  
+        app => $app,    
+        tests => [
+        {   name    => 'Variables in templates',
+            request => [ GET => '/vars.html' ],
+            content => 'Hello, world!',
+        }
+        ];
+}
 
 my $template = Template->new( INCLUDE_PATH => $root );
 

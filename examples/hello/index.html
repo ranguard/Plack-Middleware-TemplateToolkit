@@ -1,0 +1,19 @@
+[% USE HTML %]<html>
+ <head>
+  <title>$greet</title>
+  <meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+ </head>
+ <body>
+  <h1><a href="$request.base">$greet</a></h1>
+  [% name = HTML.escape(request.parameters.name) %]
+  [% IF name %]
+   <p>Welcome, $name!</p>
+  [% ELSE %]
+   <form>
+    What's your name?
+    <input type="text" name="name" value="$name" />
+    <input type="submit" />
+   </form>
+  [% END %]
+</body>
+</html>
