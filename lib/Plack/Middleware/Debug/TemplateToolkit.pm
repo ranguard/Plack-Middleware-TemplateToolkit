@@ -41,6 +41,10 @@ Plack::Middleware::Debug::TemplateToolkit - Debug panel for Template Toolkit
 
 =head1 SYNOPSIS
 
+See the example 'hello', shipped with this distribution. You can run it with
+
+    plackup -Ilib examples/hello/app.psgi
+
 =head1 DESCRIPTION
 
 This L<Plack::Middleware::Debug> Panel shows which template has been processed

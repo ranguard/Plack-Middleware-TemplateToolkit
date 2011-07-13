@@ -11,7 +11,6 @@ use Template 2;
 use Scalar::Util qw(blessed);
 use HTTP::Status qw(status_message);
 use Encode;
-use Encode::DoubleEncodedUTF8;
 use Carp;
 
 # Configuration options as described in Template::Manual::Config
@@ -59,7 +58,7 @@ BEGIN {
 
 use Plack::Util::Accessor (
     qw(dir_index path extension content_type default_type tt root
-       pass_through utf8 vars request_vars), 
+       pass_through decode_request encode_response vars request_vars),
     @TT_CONFIG
 );
 
@@ -69,7 +68,8 @@ sub prepare_app {
     $self->dir_index('index.html')   unless $self->dir_index;
     $self->pass_through(0)           unless defined $self->pass_through;
     $self->default_type('text/html') unless $self->default_type;
-    $self->utf8('fix')               unless defined $self->utf8;
+    $self->decode_request('utf8')    unless defined $self->decode_request;
+    $self->encode_response('utf8')   unless defined $self->encode_response;
     $self->request_vars([])          unless defined $self->request_vars;
 
     if ( not $self->vars ) {
@@ -132,13 +132,8 @@ sub process_template {
             Plack::MIME->mime_type($1) if $template =~ /(\.\w{1,6})$/;
             }
             || $self->default_type;
-        if ( $self->utf8 eq 'fix' ) {
-            $content = decode('utf-8-de', $content);
-            utf8::encode($content);
-        } elsif ( $self->utf8 eq 'encode' ) {
-            utf8::encode($content);
-        } elsif ( $self->utf8 eq 'downgrade' ) {
-            utf8::downgrade($content);
+        if ( $self->encode_response ) {
+            $content = encode( $self->encode_response, $content );
         }
         $res = [ $code, [ 'Content-Type' => $type ], [$content] ];
     } else {
@@ -201,7 +196,27 @@ sub _set_vars {
             $vars{request} = { };
             foreach ( @{ $self->request_vars } ) {
                 next unless $req->can($_);
-                $vars{request}->{$_} = $req->$_;
+                my $value = $req->$_;
+
+                # request vars should also be byte strings, so we must decode it
+                if ( $self->decode_request ) {
+                    my $encoding = $self->decode_request;
+
+                    if ( blessed($value) and $value->isa('Hash::MultiValue') ) {
+                        my @values = $value->values;
+                        @values = map { decode( $encoding, $_) } @values;
+                        my $hash = Hash::MultiValue->new;
+                        foreach my $key ( $value->keys ) {
+                            $key = decode( $encoding, $key );
+                            $hash->add($key, shift @values);
+                        }
+                        $value = $hash;
+                    } else {
+                        $value = decode($encoding, $value);
+                    }
+                }
+
+                $vars{request}->{$_} = $value;
             }
         }
     }
@@ -382,6 +397,9 @@ parameter to 'all' gives you the original Plack::Request object, but this
 is unstable, bad practice because the object may change and your templates
 may damage the request object.
 
+By default the request variables are decoded from byte strings to Unicode.
+You can change this with the configuration value 'decode_request'.
+
 =item dir_index
 
 Which file to use as a directory index, defaults to index.html
@@ -404,48 +422,21 @@ Directly set an instance of L<Template> instead of creating a new one:
   my $tt = Template->new( %tt_options );
   Plack::Middleware::TemplateToolkit->new( tt => $tt );
 
-=item utf8
+=item encode_response
 
 If your templates or template variables are Unicode strings, the output must be
-encoded, because PSGI expects the content body to be a byte stream. The
-following options are supported:
+encoded, because PSGI expects the content body to be a byte stream. You can
+specify an encoding, such as 'utf8' with this parameter, so the output is
+encoded to a byte string. The default setting is 'utf8' which encodes to UTF-8
+bytes.  This default option is useful if your input contains non-ASCII
+characters, but it may lead to double encoded UTF-8 bytes, if you accidently
+mix strings with UTF-8 flag and without.  To find such implicit encoding
+conversions, try L<encoding::warnings>.
 
-=over 4
+=item decode_request
 
-=item encode
-
-The output is encoded to UTF-8 bytes with C<utf8::encode>. This option is useful
-if your input contains non-ASCII characters, but it may lead to double encoded
-UTF-8 bytes, if you mix strings with UTF-8 flag and without.
-
-=item fix
-
-Fix double encoded UTF-8 bytes with L<Encode::DoubleEncodedUTF8> and then encode
-the output. This is the default option and recommended.
-
-=item allow
-
-Do not encode strings but possibly violate the PSGI specification by returning
-UTF-8 strings. If you use this option, it is up to you to ensure that only byte
-streams are emitted by your PSGI application, for instance by encoding with
-another middleware.
-
-=item downgrade
-
-Turn of the utf8 flag and convert the string to bytes in the native encoding.
-Fails if the original UTF-X sequence cannot be represented in the native 8 bit 
-encoding. You can use this option to detect errors but you should not use it
-in production.
-
-=item ignore
-
-Use the output of Template Toolkit as it is, so you must deal with Unicode 
-problems on your own.
-
-=back 
-
-It is highly recommended to use L<Plack::Middleware::Lint> and test you app
-with Unicode from several sources (templates, variables, parameters, ...).
+Similar to 'encode_response', this parameter decodes the input request from a
+byte string to an encoding of your choice. Set to 'utf8' by default.
 
 =back
 

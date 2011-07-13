@@ -1,13 +1,11 @@
 # Change file for Plack::Middleware::TemplateToolkit
 
-0.17
+0.18
     Fixed but with vars as singletons
     Modified and documented tt.path, tt.template, tt.vars
     Added Plack::Middleware::Debug::TemplateToolkit
-
-0.16
     New parameter request_vars to inject request variables
-    Modified utf8 parameter, now fixes double encoding
+    Modified utf8 parameter
 
 0.15
     Warn on deprecated accessors
