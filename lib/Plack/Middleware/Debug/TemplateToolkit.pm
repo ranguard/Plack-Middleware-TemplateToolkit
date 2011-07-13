@@ -1,4 +1,5 @@
 package Plack::Middleware::Debug::TemplateToolkit;
+# ABSTRACT: Debug panel for Template Toolkit middleware
 
 use strict;
 use warnings;
@@ -35,20 +36,23 @@ sub run {
 
 __END__
 
-=head1 NAME
-
-Plack::Middleware::Debug::TemplateToolkit - Debug panel for Template Toolkit
-
 =head1 SYNOPSIS
 
-See the example 'hello', shipped with this distribution. You can run it with
+    builder {
+        enable 'Debug';                  # enable debug
+        enable 'Debug::TemplateToolkit'; # enable debug panel
 
-    plackup -Ilib examples/hello/app.psgi
+        enable 'TemplateToolkit',
+            INCLUDE_PATH => '/path/to/htdocs/',
+            pass_through => 1;
+
+        $app;
+    };
 
 =head1 DESCRIPTION
 
-This L<Plack::Middleware::Debug> Panel shows which template has been processed
-with which templates variables, by displaying all C<tt.> PSGI environment
+This L<Plack::Middleware::Debug> Panel shows which template and template
+variables have been processed, and possibly other C<tt.> PSGI environment 
 variables.
 
 =head1 AUTHOR

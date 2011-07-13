@@ -1,4 +1,5 @@
 package Plack::Middleware::TemplateToolkit;
+# ABSTRACT: Serve files with Template Toolkit and Plack
 
 use strict;
 use warnings;
@@ -289,10 +290,6 @@ sub _handle_template {
 
 __END__
 
-=head1 NAME
-
-Plack::Middleware::TemplateToolkit - Serve files with Template Toolkit and Plack
-
 =head1 SYNOPSIS
 
     use Plack::Builder;
@@ -302,17 +299,17 @@ Plack::Middleware::TemplateToolkit - Serve files with Template Toolkit and Plack
     builder {
 
         # Page to show when requested file is missing
-        enable "Plack::Middleware::ErrorDocument",
+        enable 'ErrorDocument',
             404 => "$root/page_not_found.html";
 
         # These files can be served directly
-        enable "Plack::Middleware::Static",
+        enable 'Static',
             path => qr{\.[gif|png|jpg|swf|ico|mov|mp3|pdf|js|css]$},
             INCLUDE_PATH => $root;
 
-        enable "Plack::Middleware::TemplateToolkit",
-            INCLUDE_PATH => '/path/to/htdocs/', # required
-            pass_through => 1; # delegate missing templates to $app
+        enable 'TemplateToolkit',
+            INCLUDE_PATH => $root,  # required
+            pass_through => 1;      # delegate missing templates to $app
 
         $app;
     }
@@ -320,7 +317,6 @@ Plack::Middleware::TemplateToolkit - Serve files with Template Toolkit and Plack
 A minimal L<.psgi|PSGI> script as stand-alone application:
 
     use Plack::Middleware::TemplateToolkit;
-
     Plack::Middleware::TemplateToolkit->new( INCLUDE_PATH => "/path/to/docs" );
 
 =head1 DESCRIPTION
@@ -438,6 +434,9 @@ conversions, try L<encoding::warnings>.
 Similar to 'encode_response', this parameter decodes the input request from a
 byte string to an encoding of your choice. Set to 'utf8' by default.
 
+It is highly recommended to use L<Plack::Middleware::Lint> and test your app
+with Unicode from several sources (templates, variables, parameters, ...).
+
 =back
 
 In addition you can specify templates for error codes, for instance:
@@ -471,6 +470,8 @@ Set to the template that was asked to process. This is equal to the local path
 Set to the template that has actually been processed.
 
 =back
+
+You can view these variables with L<Plack::Middleware::Debug::TemplateToolkit>.
 
 =head1 METHODS
 
