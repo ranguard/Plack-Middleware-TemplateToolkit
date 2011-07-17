@@ -100,7 +100,7 @@ sub prepare_app {
     }
 }
 
-sub call {    # adopted from Plack::Middleware::Static
+sub call {    # adapted from Plack::Middleware::Static
     my ( $self, $env ) = @_;
 
     my $res = $self->_handle_template($env);
@@ -111,7 +111,7 @@ sub call {    # adopted from Plack::Middleware::Static
     if ( $self->app ) {
         $res = $self->app->($env);
 
-        # TODO: if $res->[0] ne 200 and catch_errors: process error message
+        # TODO: if $res->[0] ne 200 and catch_errors: process error message?
     } else {
         my $req = Plack::Request->new($env);
         $res = $self->process_error( 404, 'Not found', 'text/plain', $req );
@@ -496,7 +496,7 @@ been used to create the error document.
 
 =head1 SEE ALSO
 
-L<Plack>, L<Template>
+L<Plack>, L<Template>, L<Plack::Middleware::Debug::TemplateToolkit>
 
 =head1 AUTHORS
 
