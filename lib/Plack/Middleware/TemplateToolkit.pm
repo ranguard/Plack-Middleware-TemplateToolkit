@@ -1,4 +1,5 @@
 package Plack::Middleware::TemplateToolkit;
+# ABSTRACT: Serve files with Template Toolkit and Plack
 
 use strict;
 use warnings;
@@ -11,7 +12,6 @@ use Template 2;
 use Scalar::Util qw(blessed);
 use HTTP::Status qw(status_message);
 use Encode;
-use Encode::DoubleEncodedUTF8;
 use Carp;
 
 # Configuration options as described in Template::Manual::Config
@@ -59,7 +59,7 @@ BEGIN {
 
 use Plack::Util::Accessor (
     qw(dir_index path extension content_type default_type tt root
-       pass_through utf8 vars request_vars), 
+       pass_through decode_request encode_response vars request_vars),
     @TT_CONFIG
 );
 
@@ -69,17 +69,21 @@ sub prepare_app {
     $self->dir_index('index.html')   unless $self->dir_index;
     $self->pass_through(0)           unless defined $self->pass_through;
     $self->default_type('text/html') unless $self->default_type;
-    $self->utf8('fix')               unless defined $self->utf8;
+    $self->decode_request('utf8')    unless defined $self->decode_request;
+    $self->encode_response('utf8')   unless defined $self->encode_response;
+    $self->request_vars([])          unless defined $self->request_vars;
 
-    if ( not ref $self->vars ) {
+    if ( not $self->vars ) {
         $self->vars(
-            sub {
-                { shift->query_parameters }
-            }
+            sub { return { params => shift->query_parameters } }
         );
-    } elsif ( ref $self->vars ne 'CODE' ) {
+    } elsif ( ref $self->vars eq 'HASH' ) {
         my $vars = $self->vars;
-        $self->vars( sub {$vars} );
+        $self->vars(
+            sub { return $vars; }
+        ); 
+    } elsif ( ref $self->vars ne 'CODE' ) {
+        die 'vars must be a code or hash reference, if defined';
     }
 
     my $config = {};
@@ -123,24 +127,21 @@ sub call {    # adopted from Plack::Middleware::Static
 sub process_template {
     my ( $self, $template, $code, $vars ) = @_;
 
-    my $content;
+    my ( $content, $res );
     if ( $self->tt->process( $template, $vars, \$content ) ) {
         my $type = $self->content_type || do {
             Plack::MIME->mime_type($1) if $template =~ /(\.\w{1,6})$/;
             }
             || $self->default_type;
-        if ( $self->utf8 eq 'fix' ) {
-            $content = decode('utf-8-de', $content);
-            utf8::encode($content);
-        } elsif ( $self->utf8 eq 'encode' ) {
-            utf8::encode($content);
-        } elsif ( $self->utf8 eq 'downgrade' ) {
-            utf8::downgrade($content);
+        if ( $self->encode_response ) {
+            $content = encode( $self->encode_response, $content );
         }
-        return [ $code, [ 'Content-Type' => $type ], [$content] ];
+        $res = [ $code, [ 'Content-Type' => $type ], [$content] ];
     } else {
-        return $self->tt->error->as_string;
+        $res = $self->tt->error->as_string;
     }
+
+    return $res;
 }
 
 sub process_error {
@@ -160,53 +161,78 @@ sub process_error {
     $self->_set_vars($req);
 
     $req->env->{'tt.vars'}->{'error'} = $error;
-    my $res = $self->process_template( $self->{$code}, $code,
-        $req->env->{'tt.vars'} );
+    my $tpl = $self->{$code};
+    my $res = $self->process_template( $tpl, $code, $req->env->{'tt.vars'} );
 
-    if ( not ref $res ) {
-
+    unless ( ref $res ) {
         # processing error document failed: result in a 500 error
         if ( $code eq 500 ) {
             $res = [ 500, [ 'Content-Type' => $type ], [$res] ];
+            $tpl = undef;
         } else {
             if ( ref $req->logger ) {
                 $req->logger->( { level => 'warn', message => $res } );
             }
-            $res = $self->process_error( 500, $res, $type, $req );
+            ($res, $tpl) = $self->process_error( 500, $res, $type, $req );
         }
     }
 
-    return $res;
+    return wantarray ? ($res, $tpl) : $res;
 }
 
 sub _set_vars {
     my ( $self, $req ) = @_;
     my $env = $req->env;
 
-    # TODO: $self->vars may die if it's broken. Should be catch this?
-    my $vars = $self->vars->($req) if defined $self->{vars};
+    # we must not copy the vars by reference because
+    # otherwise we might modify the same object
+    # TODO: catch error if $self->vars does not return hash ref or dies?
+    my (%vars) = %{ $self->vars->($req) } if defined $self->vars;
+
     my $rv   = $self->request_vars;
-    if ( $rv and not exists $vars->{request} ) {
-        if ( ref $rv ) {
-            $vars->{request} = { };
+    unless ( exists $vars{request} ) {
+        if ( $rv eq 'all' ) {
+            $vars{request} = $req;
+        } elsif ( ref $rv and @$rv ) {
+            $vars{request} = { };
             foreach ( @{ $self->request_vars } ) {
                 next unless $req->can($_);
-                $vars->{request}->{$_} = $req->$_;
+                my $value = $req->$_;
+
+                # request vars should also be byte strings, so we must decode it
+                if ( $self->decode_request ) {
+                    my $encoding = $self->decode_request;
+
+                    if ( blessed($value) and $value->isa('Hash::MultiValue') ) {
+                        my @values = $value->values;
+                        @values = map { decode( $encoding, $_) } @values;
+                        my $hash = Hash::MultiValue->new;
+                        foreach my $key ( $value->keys ) {
+                            $key = decode( $encoding, $key );
+                            $hash->add($key, shift @values);
+                        }
+                        $value = $hash;
+                    } else {
+                        $value = decode($encoding, $value);
+                    }
+                }
+
+                $vars{request}->{$_} = $value;
             }
-        } elsif ( $rv eq 'all' ) {
-            $vars->{request} = $req;
         }
     }
 
     if ( $env->{'tt.vars'} ) {
-        foreach ( keys %$vars ) {
-            $env->{'tt.vars'}->{$_} = $vars->{$_};
+        # add to existing vars
+        foreach ( keys %vars ) {
+            $env->{'tt.vars'}->{$_} = $vars{$_};
         }
     } else {
-        $env->{'tt.vars'} = $vars;
+        $env->{'tt.vars'} = \%vars;
     }
 }
 
+# core function called once in 'call'
 sub _handle_template {
     my ( $self, $env ) = @_;
 
@@ -223,45 +249,46 @@ sub _handle_template {
 
     my $req = Plack::Request->new($env);
 
+    $env->{'tt.path'} = $req->path_info;
+
     $path = $req->path;
     $path .= $self->dir_index if $path =~ /\/$/;
+    $path =~ s{^/}{};    # Do not want to enable absolute paths
 
     my $extension = $self->extension;
     if ( $extension and $path !~ /${extension}$/ ) {
-
         # TODO: we may want another code (forbidden) and message here
-        return $self->process_error( 404, 'Not found', 'text/plain', $req );
+        my ($res, $tpl) = $self->process_error( 
+            404, 'Not found', 'text/plain', $req );
+        $env->{'tt.template'} = $tpl;
+        return $res;
     }
-
-    $path =~ s{^/}{};    # Do not want to enable absolute paths
 
     $self->_set_vars($req);
 
-    $env->{'tt.template'} = $path;    # for debug inspection (not tested)
+    my $tpl = $path;
+    my $res = $self->process_template( $path, 200, $env->{'tt.vars'}  );
 
-    my $res = $self->process_template( $path, 200, $env->{'tt.vars'} );
-    if ( ref $res ) {
-        return $res;
-    } else {
+    unless( ref $res ) {
         my $type = $self->content_type || $self->default_type;
         if ( $res =~ /file error .+ not found/ ) {
-            return $self->process_error( 404, $res, $type, $req );
+            ($res, $tpl) = $self->process_error( 404, $res, $type, $req );
         } else {
             if ( ref $req->logger ) {
                 $req->logger->( { level => 'warn', message => $res } );
             }
-            return $self->process_error( 500, $res, $type, $req );
+            ($res, $tpl) = $self->process_error( 500, $res, $type, $req );
         }
     }
+
+    $env->{'tt.template'} = $tpl; # not fully covered by unit tests
+
+    return $res;
 }
 
 1;
 
 __END__
-
-=head1 NAME
-
-Plack::Middleware::TemplateToolkit - Serve files with Template Toolkit and Plack
 
 =head1 SYNOPSIS
 
@@ -272,17 +299,17 @@ Plack::Middleware::TemplateToolkit - Serve files with Template Toolkit and Plack
     builder {
 
         # Page to show when requested file is missing
-        enable "Plack::Middleware::ErrorDocument",
+        enable 'ErrorDocument',
             404 => "$root/page_not_found.html";
 
         # These files can be served directly
-        enable "Plack::Middleware::Static",
+        enable 'Static',
             path => qr{\.[gif|png|jpg|swf|ico|mov|mp3|pdf|js|css]$},
             INCLUDE_PATH => $root;
 
-        enable "Plack::Middleware::TemplateToolkit",
-            INCLUDE_PATH => '/path/to/htdocs/', # required
-            pass_through => 1; # delegate missing templates to $app
+        enable 'TemplateToolkit',
+            INCLUDE_PATH => $root,  # required
+            pass_through => 1;      # delegate missing templates to $app
 
         $app;
     }
@@ -290,7 +317,6 @@ Plack::Middleware::TemplateToolkit - Serve files with Template Toolkit and Plack
 A minimal L<.psgi|PSGI> script as stand-alone application:
 
     use Plack::Middleware::TemplateToolkit;
-
     Plack::Middleware::TemplateToolkit->new( INCLUDE_PATH => "/path/to/docs" );
 
 =head1 DESCRIPTION
@@ -367,6 +393,9 @@ parameter to 'all' gives you the original Plack::Request object, but this
 is unstable, bad practice because the object may change and your templates
 may damage the request object.
 
+By default the request variables are decoded from byte strings to Unicode.
+You can change this with the configuration value 'decode_request'.
+
 =item dir_index
 
 Which file to use as a directory index, defaults to index.html
@@ -389,45 +418,21 @@ Directly set an instance of L<Template> instead of creating a new one:
   my $tt = Template->new( %tt_options );
   Plack::Middleware::TemplateToolkit->new( tt => $tt );
 
-=item utf8
+=item encode_response
 
 If your templates or template variables are Unicode strings, the output must be
-encoded, because PSGI expects the content body to be a byte stream. The
-following options are supported:
+encoded, because PSGI expects the content body to be a byte stream. You can
+specify an encoding, such as 'utf8' with this parameter, so the output is
+encoded to a byte string. The default setting is 'utf8' which encodes to UTF-8
+bytes.  This default option is useful if your input contains non-ASCII
+characters, but it may lead to double encoded UTF-8 bytes, if you accidently
+mix strings with UTF-8 flag and without.  To find such implicit encoding
+conversions, try L<encoding::warnings>.
 
-=over 4
+=item decode_request
 
-=item encode
-
-The output is encoded to UTF-8 bytes with C<utf8::encode>. This option is useful
-if your input contains non-ASCII characters, but it may lead to double encoded
-UTF-8 bytes, if you mix strings with UTF-8 flag and without.
-
-=item fix
-
-Fix double encoded UTF-8 bytes with L<Encode::DoubleEncodedUTF8> and then encode
-the output. This is the default option and recommended.
-
-=item allow
-
-Do not encode strings but possibly violate the PSGI specification by returning
-UTF-8 strings. If you use this option, it is up to you to ensure that only byte
-streams are emitted by your PSGI application, for instance by encoding with
-another middleware.
-
-=item downgrade
-
-Turn of the utf8 flag and convert the string to bytes in the native encoding.
-Fails if the original UTF-X sequence cannot be represented in the native 8 bit 
-encoding. You can use this option to detect errors but you should not use it
-in production.
-
-=item ignore
-
-Use the output of Template Toolkit as it is, so you must deal with Unicode 
-problems on your own.
-
-=back 
+Similar to 'encode_response', this parameter decodes the input request from a
+byte string to an encoding of your choice. Set to 'utf8' by default.
 
 It is highly recommended to use L<Plack::Middleware::Lint> and test your app
 with Unicode from several sources (templates, variables, parameters, ...).
@@ -443,6 +448,30 @@ In addition you can specify templates for error codes, for instance:
 
 If a specified error templates could not be found and processed, an error
 with HTTP status code 500 is returned, possibly also as template.
+
+=head1 ENVIRONMENT
+
+This middleware inspects and/or manipulates the following variables from 
+the PSGI environment:
+
+=over 4
+
+=item tt.vars
+
+Injected as template variables if defined. Set to the template variables.
+
+=item tt.path
+
+Set to the template that was asked to process. This is equal to the local path
+(C<path_info> in L<Plack::Request>) if the request matched.
+
+=item tt.template
+
+Set to the template that has actually been processed.
+
+=back
+
+You can view these variables with L<Plack::Middleware::Debug::TemplateToolkit>.
 
 =head1 METHODS
 
@@ -462,6 +491,8 @@ On failure this method returns an error message instead of a reference.
 Returns a PSGI response to be used as error message. Error templates are used
 if they have been specified and prepare_app has been called before. This method 
 tries hard not to fail: undefined parameters are replaced by default values.
+In list context this returns a PSGI response and the actual template that has
+been used to create the error document.
 
 =head1 SEE ALSO
 

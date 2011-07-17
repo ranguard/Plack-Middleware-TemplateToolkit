@@ -21,7 +21,8 @@ my $app = Plack::Middleware::TemplateToolkit->new(
 );
 
 # must not die, even if prepare_app has not been called
-my $err = $app->process_error;
+my ($err,$tpl) = $app->process_error;
+is $tpl, undef, 'no error document';
 
 $err = $app->process_error( 424, undef, 'text/html' );
 is_deeply $err, [424,['Content-Type'=>'text/html'],
@@ -33,18 +34,21 @@ is_deeply $err, [500,['Content-Type'=>'text/plain'],
 
 $app->prepare_app; # in general this should have been called before
 
+($err,$tpl) = $app->process_error;
+
 $err = $app->process_error;
 is_deeply $err, [500,['Content-Type'=>'text/html'],
                      ['Server error: Internal Server Error']], 'process_error 500';
 
-$err = $app->process_error( 500, 'Sorry!' );
+($err,$tpl) = $app->process_error( 500, 'Sorry!' );
+is $tpl, '500.html', 'got 500.html';
 is_deeply $err, [500,['Content-Type'=>'text/html'],
                      ['Server error: Sorry!']], 'process_error 500 with message';
 
-$err = $app->process_error( 404 );
+($err,$tpl) = $app->process_error( 404 );
+is $tpl, '404.html', 'got 404.html';
 is_deeply $err, [404,['Content-Type'=>'text/html'],
                      ['404-page']], 'process_error 404';
-
 
 app_tests
     app => $app,
