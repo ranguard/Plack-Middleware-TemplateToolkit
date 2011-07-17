@@ -305,7 +305,7 @@ __END__
         # These files can be served directly
         enable 'Static',
             path => qr{\.[gif|png|jpg|swf|ico|mov|mp3|pdf|js|css]$},
-            INCLUDE_PATH => $root;
+            root => $root;
 
         enable 'TemplateToolkit',
             INCLUDE_PATH => $root,  # required
