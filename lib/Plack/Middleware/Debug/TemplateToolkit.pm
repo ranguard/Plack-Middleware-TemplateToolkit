@@ -8,7 +8,7 @@ use 5.008_001;
 use parent 'Plack::Middleware::Debug::Base';
 
 sub run {
-    my ($self, $env, $panel) = @_;
+    my ( $self, $env, $panel ) = @_;
 
     return sub {
         my $res = shift;
@@ -25,12 +25,15 @@ sub run {
         my @ttkeys = grep { $_ =~ /^tt\./ } keys %$env;
 
         $panel->content(
-            $self->render_list_pairs( [
-                map { $_ => delete $env->{$_} } sort @ttkeys
-            ] ) . $ttvars
+            $self->render_list_pairs(
+                [ map { $_ => delete $env->{$_} } sort @ttkeys ]
+                )
+                . $ttvars
         );
-    }
+        }
 }
+
+
 
 1;
 
@@ -39,8 +42,8 @@ __END__
 =head1 SYNOPSIS
 
     builder {
-        enable 'Debug';                  # enable debug
-        enable 'Debug::TemplateToolkit'; # enable debug panel
+        enable 'Debug';                     # enable debug
+        enable 'Debug::TemplateToolkit';    # enable debug panel
 
         enable 'TemplateToolkit',
             INCLUDE_PATH => '/path/to/htdocs/',

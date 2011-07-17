@@ -59,7 +59,7 @@ BEGIN {
 
 use Plack::Util::Accessor (
     qw(dir_index path extension content_type default_type tt root
-       pass_through decode_request encode_response vars request_vars),
+        pass_through decode_request encode_response vars request_vars),
     @TT_CONFIG
 );
 
@@ -71,17 +71,13 @@ sub prepare_app {
     $self->default_type('text/html') unless $self->default_type;
     $self->decode_request('utf8')    unless defined $self->decode_request;
     $self->encode_response('utf8')   unless defined $self->encode_response;
-    $self->request_vars([])          unless defined $self->request_vars;
+    $self->request_vars( [] ) unless defined $self->request_vars;
 
     if ( not $self->vars ) {
-        $self->vars(
-            sub { return { params => shift->query_parameters } }
-        );
+        $self->vars( sub { return { params => shift->query_parameters } } );
     } elsif ( ref $self->vars eq 'HASH' ) {
         my $vars = $self->vars;
-        $self->vars(
-            sub { return $vars; }
-        ); 
+        $self->vars( sub { return $vars; } );
     } elsif ( ref $self->vars ne 'CODE' ) {
         die 'vars must be a code or hash reference, if defined';
     }
@@ -165,6 +161,7 @@ sub process_error {
     my $res = $self->process_template( $tpl, $code, $req->env->{'tt.vars'} );
 
     unless ( ref $res ) {
+
         # processing error document failed: result in a 500 error
         if ( $code eq 500 ) {
             $res = [ 500, [ 'Content-Type' => $type ], [$res] ];
@@ -173,11 +170,11 @@ sub process_error {
             if ( ref $req->logger ) {
                 $req->logger->( { level => 'warn', message => $res } );
             }
-            ($res, $tpl) = $self->process_error( 500, $res, $type, $req );
+            ( $res, $tpl ) = $self->process_error( 500, $res, $type, $req );
         }
     }
 
-    return wantarray ? ($res, $tpl) : $res;
+    return wantarray ? ( $res, $tpl ) : $res;
 }
 
 sub _set_vars {
@@ -189,31 +186,32 @@ sub _set_vars {
     # TODO: catch error if $self->vars does not return hash ref or dies?
     my (%vars) = %{ $self->vars->($req) } if defined $self->vars;
 
-    my $rv   = $self->request_vars;
+    my $rv = $self->request_vars;
     unless ( exists $vars{request} ) {
         if ( $rv eq 'all' ) {
             $vars{request} = $req;
         } elsif ( ref $rv and @$rv ) {
-            $vars{request} = { };
+            $vars{request} = {};
             foreach ( @{ $self->request_vars } ) {
                 next unless $req->can($_);
                 my $value = $req->$_;
 
-                # request vars should also be byte strings, so we must decode it
+              # request vars should also be byte strings, so we must decode it
                 if ( $self->decode_request ) {
                     my $encoding = $self->decode_request;
 
-                    if ( blessed($value) and $value->isa('Hash::MultiValue') ) {
+                    if ( blessed($value) and $value->isa('Hash::MultiValue') )
+                    {
                         my @values = $value->values;
-                        @values = map { decode( $encoding, $_) } @values;
+                        @values = map { decode( $encoding, $_ ) } @values;
                         my $hash = Hash::MultiValue->new;
                         foreach my $key ( $value->keys ) {
                             $key = decode( $encoding, $key );
-                            $hash->add($key, shift @values);
+                            $hash->add( $key, shift @values );
                         }
                         $value = $hash;
                     } else {
-                        $value = decode($encoding, $value);
+                        $value = decode( $encoding, $value );
                     }
                 }
 
@@ -223,6 +221,7 @@ sub _set_vars {
     }
 
     if ( $env->{'tt.vars'} ) {
+
         # add to existing vars
         foreach ( keys %vars ) {
             $env->{'tt.vars'}->{$_} = $vars{$_};
@@ -257,9 +256,10 @@ sub _handle_template {
 
     my $extension = $self->extension;
     if ( $extension and $path !~ /${extension}$/ ) {
+
         # TODO: we may want another code (forbidden) and message here
-        my ($res, $tpl) = $self->process_error( 
-            404, 'Not found', 'text/plain', $req );
+        my ( $res, $tpl )
+            = $self->process_error( 404, 'Not found', 'text/plain', $req );
         $env->{'tt.template'} = $tpl;
         return $res;
     }
@@ -267,21 +267,21 @@ sub _handle_template {
     $self->_set_vars($req);
 
     my $tpl = $path;
-    my $res = $self->process_template( $path, 200, $env->{'tt.vars'}  );
+    my $res = $self->process_template( $path, 200, $env->{'tt.vars'} );
 
-    unless( ref $res ) {
+    unless ( ref $res ) {
         my $type = $self->content_type || $self->default_type;
         if ( $res =~ /file error .+ not found/ ) {
-            ($res, $tpl) = $self->process_error( 404, $res, $type, $req );
+            ( $res, $tpl ) = $self->process_error( 404, $res, $type, $req );
         } else {
             if ( ref $req->logger ) {
                 $req->logger->( { level => 'warn', message => $res } );
             }
-            ($res, $tpl) = $self->process_error( 500, $res, $type, $req );
+            ( $res, $tpl ) = $self->process_error( 500, $res, $type, $req );
         }
     }
 
-    $env->{'tt.template'} = $tpl; # not fully covered by unit tests
+    $env->{'tt.template'} = $tpl;    # not fully covered by unit tests
 
     return $res;
 }
@@ -299,7 +299,7 @@ __END__
     builder {
 
         # Page to show when requested file is missing
-        enable 'ErrorDocument',
+        enable 'ErrorDocument',    #
             404 => "$root/page_not_found.html";
 
         # These files can be served directly
@@ -308,8 +308,8 @@ __END__
             root => $root;
 
         enable 'TemplateToolkit',
-            INCLUDE_PATH => $root,  # required
-            pass_through => 1;      # delegate missing templates to $app
+            INCLUDE_PATH => $root,    # required
+            pass_through => 1;        # delegate missing templates to $app
 
         $app;
     }
