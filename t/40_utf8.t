@@ -49,7 +49,7 @@ test_psgi $app, sub {
 
 
 # allow utf8
-my $app = Plack::Middleware::TemplateToolkit->new( 
+$app = Plack::Middleware::TemplateToolkit->new( 
     INCLUDE_PATH => $root, encode_response => 0 );
 $app->prepare_app;
 
