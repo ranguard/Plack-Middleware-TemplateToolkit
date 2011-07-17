@@ -1,6 +1,6 @@
 # Change file for Plack::Middleware::TemplateToolkit
 
-0.18
+0.2
     Fixed but with vars as singletons
     Modified and documented tt.path, tt.template, tt.vars
     Added Plack::Middleware::Debug::TemplateToolkit
