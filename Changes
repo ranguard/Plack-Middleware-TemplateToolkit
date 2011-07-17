@@ -1,7 +1,7 @@
 # Change file for Plack::Middleware::TemplateToolkit
 
 0.2
-    Fixed but with vars as singletons
+    Fixed bug with vars as singletons
     Modified and documented tt.path, tt.template, tt.vars
     Added Plack::Middleware::Debug::TemplateToolkit
     New parameter request_vars to inject request variables
@@ -9,7 +9,7 @@
 
 0.15
     Warn on deprecated accessors
-	Introduced $env->{'tt.template'}
+    Introduced $env->{'tt.template'}
 
 0.12
     Use same configuration options as Template Toolkit

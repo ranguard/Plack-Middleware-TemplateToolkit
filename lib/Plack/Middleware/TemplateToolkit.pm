@@ -304,7 +304,7 @@ __END__
 
         # These files can be served directly
         enable 'Static',
-            path => qr{\.[gif|png|jpg|swf|ico|mov|mp3|pdf|js|css]$},
+            path => qr{\.(gif|png|jpg|swf|ico|mov|mp3|pdf|js|css)$},
             root => $root;
 
         enable 'TemplateToolkit',
