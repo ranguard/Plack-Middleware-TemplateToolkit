@@ -5,6 +5,7 @@ use strict;
 use warnings;
 use 5.008_001;
 
+use parent 'Exporter'; # for 'use Plack::Middleware::TemplateToolkit $version;'
 use parent 'Plack::Middleware';
 use Plack::Request 0.994;
 use Plack::MIME;
