@@ -235,42 +235,49 @@ sub _set_vars {
 sub _handle_template {
     my ( $self, $env ) = @_;
 
-    my $path       = $env->{PATH_INFO} || '/';
-    my $path_match = $self->path       || '/';
+    if ( not $env->{'tt.template'} ) {
+        my $path = $env->{'tt.path'} || do {
+           $env->{'tt.path'} = $env->{PATH_INFO} || '/';
+        };
 
-    for ($path) {
-        my $matched
-            = 'CODE' eq ref $path_match
-            ? $path_match->($_)
-            : $_ =~ $path_match;
-        return unless $matched;
+        my $path_match = $self->path || '/';
+        for ($path) {
+            my $matched
+                = 'CODE' eq ref $path_match
+                ? $path_match->($_)
+                : $_ =~ $path_match;
+            if (not $matched) {
+                delete $env->{'tt.path'};
+                return;
+            }
+        }
+
+        $path .= $self->dir_index if $path =~ /\/$/;
+        $path =~ s{^/}{};    # Do not want to enable absolute paths
+
+        my $extension = $self->extension;
+        if ( $extension and $path !~ /${extension}$/ ) {
+            # TODO: we may want another code (forbidden) and message here
+            my ($res, $tpl) = $self->process_error(
+                404, 'Not found', 'text/plain', Plack::Request->new($env) );
+            $env->{'tt.template'} = $tpl;
+            return $res;
+        }
+
+        $env->{'tt.template'} = $path;
+    } else {
+        delete $env->{'tt.path'};
     }
 
     my $req = Plack::Request->new($env);
-
-    $env->{'tt.path'} = $req->path_info;
-
-    $path = $req->path;
-    $path .= $self->dir_index if $path =~ /\/$/;
-    $path =~ s{^/}{};    # Do not want to enable absolute paths
-
-    my $extension = $self->extension;
-    if ( $extension and $path !~ /${extension}$/ ) {
-
-        # TODO: we may want another code (forbidden) and message here
-        my ( $res, $tpl )
-            = $self->process_error( 404, 'Not found', 'text/plain', $req );
-        $env->{'tt.template'} = $tpl;
-        return $res;
-    }
-
     $self->_set_vars($req);
 
-    my $tpl = $path;
-    my $res = $self->process_template( $path, 200, $env->{'tt.vars'} );
+    my $res = $self->process_template(
+        $env->{'tt.template'}, 200, $env->{'tt.vars'} );
 
     unless ( ref $res ) {
         my $type = $self->content_type || $self->default_type;
+        my $tpl;
         if ( $res =~ /file error .+ not found/ ) {
             ( $res, $tpl ) = $self->process_error( 404, $res, $type, $req );
         } else {
@@ -279,9 +286,8 @@ sub _handle_template {
             }
             ( $res, $tpl ) = $self->process_error( 500, $res, $type, $req );
         }
+        $env->{'tt.template'} = $tpl;
     }
-
-    $env->{'tt.template'} = $tpl;    # not fully covered by unit tests
 
     return $res;
 }
@@ -324,8 +330,8 @@ A minimal L<.psgi|PSGI> script as stand-alone application:
 Enable this middleware or application to allow your Plack-based application to
 serve files processed through L<Template Toolkit|Template> (TT). The idea
 behind this module is to provide content that is ALMOST static, but where
-having the power of TT can make the content easier to manage. You probably 
-only want to use this for the simpliest of sites, but it should be easy 
+having the power of TT can make the content easier to manage. You probably
+only want to use this for the simpliest of sites, but it should be easy
 enough to migrate to something more significant later.
 
 As L<Plack::Middleware> derives from L<Plack::Component> you can also use
@@ -343,6 +349,8 @@ L<Catalyst> if you do want to use them:
 
   [% params.get('field') %] params is a L<Hash::MultiValue>
   [% request.parameters.field %] configured with request_vars => ['parameters']
+
+A full example application is included in this module in the exmple directory.
 
 =head1 CONFIGURATIONS
 
@@ -451,7 +459,7 @@ with HTTP status code 500 is returned, possibly also as template.
 
 =head1 ENVIRONMENT
 
-This middleware inspects and/or manipulates the following variables from 
+This middleware inspects and/or manipulates the following variables from
 the PSGI environment:
 
 =over 4
@@ -463,11 +471,14 @@ Injected as template variables if defined. Set to the template variables.
 =item tt.path
 
 Set to the template that was asked to process. This is equal to the local path
-(C<path_info> in L<Plack::Request>) if the request matched.
+(C<path_info> in L<Plack::Request>) if the request matched. If this variable is
+set I<before> the middleware is called, it uses its value instead of path_info.
 
 =item tt.template
 
-Set to the template that has actually been processed.
+Set to the template that has actually been processed. If this variable is set
+I<before> the middleware is called, the specified template is processed. In this
+all other settings (path, extensions, dir_index, and tt.path) are ignored.
 
 =back
 
@@ -489,7 +500,7 @@ On failure this method returns an error message instead of a reference.
 =head2 process_error ( $code, $error, $type, $req ) = @_;
 
 Returns a PSGI response to be used as error message. Error templates are used
-if they have been specified and prepare_app has been called before. This method 
+if they have been specified and prepare_app has been called before. This method
 tries hard not to fail: undefined parameters are replaced by default values.
 In list context this returns a PSGI response and the actual template that has
 been used to create the error document.
