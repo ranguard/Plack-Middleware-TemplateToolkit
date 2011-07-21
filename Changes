@@ -1,5 +1,8 @@
 # Change file for Plack::Middleware::TemplateToolkit
 
+0.22
+    Added timer
+
 0.21
     Extend semantic of tt.path and tt.template
 
