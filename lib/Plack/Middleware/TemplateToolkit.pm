@@ -111,6 +111,7 @@ sub call {    # adapted from Plack::Middleware::Static
 
     if ( !$res or ( $self->pass_through and $res->[0] == 404 ) ) {
         if ( $self->app ) {
+            # pass to the next middleware/app
             $res = $self->app->($env);
             # if ( $self->catch_errors and $res->[0] =~ /^[45]/ ) {
             # TODO: process error message (but better use callback)
@@ -166,9 +167,10 @@ sub process_error {
 
     $req = Plack::Request->new( { 'tt.vars' => {} } )
         unless blessed $req && $req->isa('Plack::Request');
-    $self->_set_vars($req);
+    $self->_set_vars($req); # FIXME?: this may die if $self->vars is broken
 
     $req->env->{'tt.vars'}->{'error'} = $error;
+    $req->env->{'tt.vars'}->{'path'}  = $req->path_info;
     my $tpl = $self->{$code};
     my $res = $self->process_template( $tpl, $code, $req->env->{'tt.vars'} );
 
@@ -195,7 +197,6 @@ sub _set_vars {
 
     # we must not copy the vars by reference because
     # otherwise we might modify the same object
-    # TODO: catch error if $self->vars does not return hash ref or dies?
     my (%vars) = %{ $self->vars->($req) } if defined $self->vars;
 
     my $rv = $self->request_vars;
@@ -268,7 +269,7 @@ sub _handle_template {
 
         my $extension = $self->extension;
         if ( $extension and $path !~ /${extension}$/ ) {
-            # TODO: we may want another code (forbidden) and message here
+            # This 404 will be catched in method call if pass_through is set
             my ($res, $tpl) = $self->process_error(
                 404, 'Not found', 'text/plain', Plack::Request->new($env) );
             $env->{'tt.template'} = $tpl;
@@ -281,7 +282,7 @@ sub _handle_template {
     }
 
     my $req = Plack::Request->new($env);
-    $self->_set_vars($req);
+    $self->_set_vars($req); # FIXME?: this may die if $self->vars is broken
 
     my $res = $self->process_template(
         $env->{'tt.template'}, 200, $env->{'tt.vars'} );
@@ -382,8 +383,9 @@ L<Plack::Builder> to map requests based on a path to this middleware.
 
 =item extension
 
-Limit to only files with this extension. Requests for other files will result in
-a 404 response or be passed to the next application if C<pass_through> is set.
+Limit to only files with this extension. Requests for other files within
+C<path> will result in a 404 response or be passed to the next application if
+C<pass_through> is set.
 
 =item content_type
 
@@ -461,17 +463,15 @@ with Unicode from several sources (templates, variables, parameters, ...).
 Time the processing and add C<tt.start>, C<tt.end>, and C<tt.elapsed> to the
 environment.
 
+=item 404 and 500
+
+Specifies an error template that is processed when a file was not found (404)
+or on server error (500). The template variables C<error> with an error message
+and C<path> with the request path are set for processing. If an error template
+count not be found and processed, another error with status code 500 is
+returned, possibly also as template.
+
 =back
-
-In addition you can specify templates for error codes, for instance:
-
-  Plack::Middleware::TemplateToolkit->new(
-      INCLUDE_PATH => '/path/to/htdocs/',
-      404  => 'page_not_found.html' # = /path/to/htdocs/page_not_found.html
-  );
-
-If a specified error templates could not be found and processed, an error
-with HTTP status code 500 is returned, possibly also as template.
 
 =head1 ENVIRONMENT
 

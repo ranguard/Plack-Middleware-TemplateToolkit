@@ -36,7 +36,7 @@ app_tests
     },
     {   name    => '404request',
         request => [ GET => '/boom.html' ],
-        content => '404-page',
+        content => '404-page[% path %]', # served by ::ErrorDocument, no template
         headers => { 'Content-Type' => 'text/html', },
         code    => 404
     },
@@ -76,6 +76,7 @@ app_tests
     },{   
         name    => 'Unmatched request',
         request => [ GET => '/style.css' ],
+        content => 'Not found', # default error message
         code    => 404,
     }];
 

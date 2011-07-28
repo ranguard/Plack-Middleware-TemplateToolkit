@@ -1,5 +1,8 @@
 # Change file for Plack::Middleware::TemplateToolkit
 
+0.23
+    Error templates now get request path as variable
+
 0.22
     Added timer
 
