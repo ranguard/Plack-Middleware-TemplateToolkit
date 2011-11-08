@@ -167,7 +167,7 @@ sub process_error {
 
     $req = Plack::Request->new( { 'tt.vars' => {} } )
         unless blessed $req && $req->isa('Plack::Request');
-    $self->_set_vars($req); # FIXME?: this may die if $self->vars is broken
+    eval { $self->_set_vars($req); };
 
     $req->env->{'tt.vars'}->{'error'} = $error;
     $req->env->{'tt.vars'}->{'path'}  = $req->path_info;
@@ -281,15 +281,21 @@ sub _handle_template {
         delete $env->{'tt.path'};
     }
 
+    my ($res, $tpl);
     my $req = Plack::Request->new($env);
-    $self->_set_vars($req); # FIXME?: this may die if $self->vars is broken
-
-    my $res = $self->process_template(
-        $env->{'tt.template'}, 200, $env->{'tt.vars'} );
+    eval { $self->_set_vars($req); };
+    if ( $@ ) {
+        my $error = "error setting template variables: $@";
+        my $type = $self->content_type || $self->default_type;
+        ( $res, $tpl ) = $self->process_error( 500, $error, $type, $req );
+        $env->{'tt.template'} = $tpl;
+    } else {
+        $res = $self->process_template(
+            $env->{'tt.template'}, 200, $env->{'tt.vars'} );
+    }
 
     unless ( ref $res ) {
         my $type = $self->content_type || $self->default_type;
-        my $tpl;
         if ( $res =~ /file error .+ not found/ ) {
             ( $res, $tpl ) = $self->process_error( 404, $res, $type, $req );
         } else {
