@@ -36,7 +36,7 @@ app_tests
     },
     {   name    => '404request',
         request => [ GET => '/boom.html' ],
-        content => '404-page',
+        content => '404-page[% path %]', # served by ::ErrorDocument, no template
         headers => { 'Content-Type' => 'text/html', },
         code    => 404
     },
@@ -76,6 +76,7 @@ app_tests
     },{   
         name    => 'Unmatched request',
         request => [ GET => '/style.css' ],
+        content => 'Not found', # default error message
         code    => 404,
     }];
 
@@ -190,6 +191,20 @@ app_tests app => $app->to_app(),
         content => 'R:,,'
     }
     ];
+
+$app->vars( sub { die "sorry" } );
+app_tests app => $app->to_app(),
+    tests => [
+    {   name    => 'vars method may die',
+        request => [ GET => '/req.html?foo=bar' ],
+        content => qr{^error setting template variables: sorry},
+    },
+    {   name    => 'vars method may die during error processing',
+        request => [ GET => '/broken.html' ],
+        content => qr{^error setting template variables: sorry},
+    }
+    ];
+
 
 $app = Plack::Middleware::TemplateToolkit->new(
     INCLUDE_PATH => $root, POST_CHOMP => 1 );
