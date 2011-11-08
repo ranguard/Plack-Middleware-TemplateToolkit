@@ -12,6 +12,8 @@ use Plack::MIME;
 use Template 2;
 use Scalar::Util qw(blessed);
 use HTTP::Status qw(status_message);
+use Time::HiRes;
+use Plack::Middleware::Debug::Timer;
 use Encode;
 use Carp;
 
@@ -59,7 +61,7 @@ BEGIN {
 }
 
 use Plack::Util::Accessor (
-    qw(dir_index path extension content_type default_type tt root
+    qw(dir_index path extension content_type default_type tt root timer
         pass_through decode_request encode_response vars request_vars),
     @TT_CONFIG
 );
@@ -104,18 +106,28 @@ sub prepare_app {
 sub call {    # adapted from Plack::Middleware::Static
     my ( $self, $env ) = @_;
 
+    my $start = [ Time::HiRes::gettimeofday ] if $self->timer;
     my $res = $self->_handle_template($env);
-    if ( $res && not( $self->pass_through and $res->[0] == 404 ) ) {
-        return $res;
+
+    if ( !$res or ( $self->pass_through and $res->[0] == 404 ) ) {
+        if ( $self->app ) {
+            # pass to the next middleware/app
+            $res = $self->app->($env);
+            # if ( $self->catch_errors and $res->[0] =~ /^[45]/ ) {
+            # TODO: process error message (but better use callback)
+            # }
+        } else {
+            my $req = Plack::Request->new($env);
+            $res = $self->process_error( 404, 'Not found', 'text/plain', $req );
+        }
     }
 
-    if ( $self->app ) {
-        $res = $self->app->($env);
-
-        # TODO: if $res->[0] ne 200 and catch_errors: process error message?
-    } else {
-        my $req = Plack::Request->new($env);
-        $res = $self->process_error( 404, 'Not found', 'text/plain', $req );
+    if ($self->timer) {
+        my $end = [ Time::HiRes::gettimeofday ];
+        $env->{'tt.start'} = Plack::Middleware::Debug::Timer->format_time($start);
+        $env->{'tt.end'}   = Plack::Middleware::Debug::Timer->format_time($end);
+        $env->{'tt.elapsed'} 
+            = sprintf '%.6f s', Time::HiRes::tv_interval $start, $end;
     }
 
     $res;
@@ -155,9 +167,10 @@ sub process_error {
 
     $req = Plack::Request->new( { 'tt.vars' => {} } )
         unless blessed $req && $req->isa('Plack::Request');
-    $self->_set_vars($req);
+    eval { $self->_set_vars($req); };
 
     $req->env->{'tt.vars'}->{'error'} = $error;
+    $req->env->{'tt.vars'}->{'path'}  = $req->path_info;
     my $tpl = $self->{$code};
     my $res = $self->process_template( $tpl, $code, $req->env->{'tt.vars'} );
 
@@ -184,7 +197,6 @@ sub _set_vars {
 
     # we must not copy the vars by reference because
     # otherwise we might modify the same object
-    # TODO: catch error if $self->vars does not return hash ref or dies?
     my (%vars) = %{ $self->vars->($req) } if defined $self->vars;
 
     my $rv = $self->request_vars;
@@ -222,7 +234,6 @@ sub _set_vars {
     }
 
     if ( $env->{'tt.vars'} ) {
-
         # add to existing vars
         foreach ( keys %vars ) {
             $env->{'tt.vars'}->{$_} = $vars{$_};
@@ -258,7 +269,7 @@ sub _handle_template {
 
         my $extension = $self->extension;
         if ( $extension and $path !~ /${extension}$/ ) {
-            # TODO: we may want another code (forbidden) and message here
+            # This 404 will be catched in method call if pass_through is set
             my ($res, $tpl) = $self->process_error(
                 404, 'Not found', 'text/plain', Plack::Request->new($env) );
             $env->{'tt.template'} = $tpl;
@@ -270,15 +281,21 @@ sub _handle_template {
         delete $env->{'tt.path'};
     }
 
+    my ($res, $tpl);
     my $req = Plack::Request->new($env);
-    $self->_set_vars($req);
-
-    my $res = $self->process_template(
-        $env->{'tt.template'}, 200, $env->{'tt.vars'} );
+    eval { $self->_set_vars($req); };
+    if ( $@ ) {
+        my $error = "error setting template variables: $@";
+        my $type = $self->content_type || $self->default_type;
+        ( $res, $tpl ) = $self->process_error( 500, $error, $type, $req );
+        $env->{'tt.template'} = $tpl;
+    } else {
+        $res = $self->process_template(
+            $env->{'tt.template'}, 200, $env->{'tt.vars'} );
+    }
 
     unless ( ref $res ) {
         my $type = $self->content_type || $self->default_type;
-        my $tpl;
         if ( $res =~ /file error .+ not found/ ) {
             ( $res, $tpl ) = $self->process_error( 404, $res, $type, $req );
         } else {
@@ -342,7 +359,7 @@ Toolkit, treat this module as if it was called Plack::App::TemplateToolkit.
 You can mix this middleware with other Plack::App applications and
 Plack::Middleware which you will find on CPAN.
 
-This middleware reads and sets the PSGI environment variable tt.vars for
+This middleware reads and sets the PSGI environment variable C<tt.vars> for
 variables passed to templates. By default, the QUERY_STRING params are
 available to the templates, but the more you use these the harder it could be
 to migrate later so you might want to look at a propper framework such as
@@ -372,18 +389,23 @@ L<Plack::Builder> to map requests based on a path to this middleware.
 
 =item extension
 
-Limit to only files with this extension. Requests for other files will result in
-a 404 response or be passed to the next application if pass_through is set.
+Limit to only files with this extension. Requests for other files within
+C<path> will result in a 404 response or be passed to the next application if
+C<pass_through> is set.
 
 =item content_type
 
 Specify the Content-Type header you want returned. If not specified, the
 content type will be guessed by L<Plack::MIME> based on the file extension
-with default_type as default.
+with C<default_type> as default.
 
 =item default_type
 
-Specify the default Content-Type header. Defaults to to text/html.
+Specify the default Content-Type header. Defaults to to C<text/html>.
+
+=item dir_index
+
+Which file to use as a directory index, defaults to C<index.html>.
 
 =item vars
 
@@ -395,19 +417,15 @@ variables in the tt.vars environment variable.
 
 =item request_vars
 
-Specify a list of request variables from L<Plack::Request> to be collected
-in a template variable 'request'. For instance C<<[path base]>> gives you
-the template variables C<request.path> and C<request.base>. Setting this
-parameter to 'all' gives you the original Plack::Request object, but this
-is unstable, bad practice because the object may change and your templates
-may damage the request object.
+Specify a list of request variables from L<Plack::Request> to be collected in a
+template variable 'request'. For instance C< ['path','base'] > gives you the
+template variables C<request.path> and C<request.base>. Setting this parameter
+to 'all' gives you the original Plack::Request object, but this is unstable,
+bad practice because the object may change and your templates may damage the
+request object.
 
 By default the request variables are decoded from byte strings to Unicode.
-You can change this with the configuration value 'decode_request'.
-
-=item dir_index
-
-Which file to use as a directory index, defaults to index.html
+You can change this with the configuration value C<decode_request>.
 
 =item pass_through
 
@@ -431,8 +449,8 @@ Directly set an instance of L<Template> instead of creating a new one:
 
 If your templates or template variables are Unicode strings, the output must be
 encoded, because PSGI expects the content body to be a byte stream. You can
-specify an encoding, such as 'utf8' with this parameter, so the output is
-encoded to a byte string. The default setting is 'utf8' which encodes to UTF-8
+specify an encoding, such as C<utf8> with this parameter, so the output is
+encoded to a byte string. The default setting is C<utf8> which encodes to UTF-8
 bytes.  This default option is useful if your input contains non-ASCII
 characters, but it may lead to double encoded UTF-8 bytes, if you accidently
 mix strings with UTF-8 flag and without.  To find such implicit encoding
@@ -440,23 +458,26 @@ conversions, try L<encoding::warnings>.
 
 =item decode_request
 
-Similar to 'encode_response', this parameter decodes the input request from a
-byte string to an encoding of your choice. Set to 'utf8' by default.
+Similar to C<encode_response>, this parameter decodes the input request from a
+byte string to an encoding of your choice. Set to C<utf8> by default.
 
 It is highly recommended to use L<Plack::Middleware::Lint> and test your app
 with Unicode from several sources (templates, variables, parameters, ...).
 
+=item timer
+
+Time the processing and add C<tt.start>, C<tt.end>, and C<tt.elapsed> to the
+environment.
+
+=item 404 and 500
+
+Specifies an error template that is processed when a file was not found (404)
+or on server error (500). The template variables C<error> with an error message
+and C<path> with the request path are set for processing. If an error template
+count not be found and processed, another error with status code 500 is
+returned, possibly also as template.
+
 =back
-
-In addition you can specify templates for error codes, for instance:
-
-  Plack::Middleware::TemplateToolkit->new(
-      INCLUDE_PATH => '/path/to/htdocs/',
-      404  => 'page_not_found.html' # = /path/to/htdocs/page_not_found.html
-  );
-
-If a specified error templates could not be found and processed, an error
-with HTTP status code 500 is returned, possibly also as template.
 
 =head1 ENVIRONMENT
 

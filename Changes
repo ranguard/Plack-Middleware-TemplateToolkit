@@ -1,5 +1,10 @@
 # Change file for Plack::Middleware::TemplateToolkit
 
+0.25
+    Error templates now get request path as variable
+    Catch if vars method is broken
+    Added timer
+
 0.21
     Extend semantic of tt.path and tt.template
 

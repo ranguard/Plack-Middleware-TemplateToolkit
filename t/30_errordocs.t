@@ -61,7 +61,7 @@ app_tests
     },
     {   name    => '404 error template',
         request => [ GET => '/boom.html' ],
-        content => '404-page',
+        content => '404-page/boom.html',
         headers => { 'Content-Type' => 'text/html', },
         code    => 404,
         logged  => []
@@ -134,7 +134,7 @@ app_tests
         name    => 'Unmatched request, 404 as template',
         request => [ GET => '/style.css' ],
         code    => 404,
-        content => '404-page',
+        content => '404-page/style.css',
     }];
 
 
