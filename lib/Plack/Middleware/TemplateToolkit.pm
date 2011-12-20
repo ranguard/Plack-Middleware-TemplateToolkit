@@ -349,7 +349,7 @@ Enable this middleware or application to allow your Plack-based application to
 serve files processed through L<Template Toolkit|Template> (TT). The idea
 behind this module is to provide content that is ALMOST static, but where
 having the power of TT can make the content easier to manage. You probably
-only want to use this for the simpliest of sites, but it should be easy
+only want to use this for the simplest of sites, but it should be easy
 enough to migrate to something more significant later.
 
 As L<Plack::Middleware> derives from L<Plack::Component> you can also use
