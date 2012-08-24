@@ -169,8 +169,10 @@ sub process_error {
         unless blessed $req && $req->isa('Plack::Request');
     eval { $self->_set_vars($req); };
 
-    $req->env->{'tt.vars'}->{'error'} = $error;
-    $req->env->{'tt.vars'}->{'path'}  = $req->path_info;
+    $req->env->{'tt.vars'}->{'error'}   = $error;
+    $req->env->{'tt.vars'}->{'path'}    = $req->path_info;
+    $req->env->{'tt.vars'}->{'request'} = $req;
+    
     my $tpl = $self->{$code};
     my $res = $self->process_template( $tpl, $code, $req->env->{'tt.vars'} );
 
@@ -472,10 +474,10 @@ environment.
 =item 404 and 500
 
 Specifies an error template that is processed when a file was not found (404)
-or on server error (500). The template variables C<error> with an error message
-and C<path> with the request path are set for processing. If an error template
-count not be found and processed, another error with status code 500 is
-returned, possibly also as template.
+or on server error (500). The template variables C<error> with an error message,
+C<path> with the request path, and C<request> with the request objects are set 
+for processing. If an error template count not be found and processed, another
+error with status code 500 is returned, possibly also as template.
 
 =back
 
