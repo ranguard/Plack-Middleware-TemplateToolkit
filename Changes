@@ -1,5 +1,8 @@
 # Change file for Plack::Middleware::TemplateToolkit
 
+0.26 Sat 29 Sep 2012 10:37:11 BST
+    Add request object as variable in error template
+
 0.25
     Error templates now get request path as variable
     Catch if vars method is broken
