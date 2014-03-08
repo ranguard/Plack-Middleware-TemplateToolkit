@@ -1,5 +1,8 @@
 # Change file for Plack::Middleware::TemplateToolkit
 
+0.27 Sat  8 Mar 2014 19:59:47
+    Add missing NAME pod (thanks to neilb for pointing out)
+
 0.26 Sat 29 Sep 2012 10:37:11 BST
     Add request object as variable in error template
 

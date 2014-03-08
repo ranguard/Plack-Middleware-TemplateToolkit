@@ -39,6 +39,10 @@ sub run {
 
 __END__
 
+=head1 NAME
+
+  Plack::Middleware::Debug::TemplateToolkit - debug panel for TemplateToolkit
+
 =head1 SYNOPSIS
 
     builder {
@@ -55,7 +59,7 @@ __END__
 =head1 DESCRIPTION
 
 This L<Plack::Middleware::Debug> Panel shows which template and template
-variables have been processed, and possibly other C<tt.> PSGI environment 
+variables have been processed, and possibly other C<tt.> PSGI environment
 variables.
 
 =head1 AUTHOR
