@@ -126,7 +126,7 @@ sub call {    # adapted from Plack::Middleware::Static
         my $end = [ Time::HiRes::gettimeofday ];
         $env->{'tt.start'} = Plack::Middleware::Debug::Timer->format_time($start);
         $env->{'tt.end'}   = Plack::Middleware::Debug::Timer->format_time($end);
-        $env->{'tt.elapsed'} 
+        $env->{'tt.elapsed'}
             = sprintf '%.6f s', Time::HiRes::tv_interval $start, $end;
     }
 
@@ -172,7 +172,7 @@ sub process_error {
     $req->env->{'tt.vars'}->{'error'}   = $error;
     $req->env->{'tt.vars'}->{'path'}    = $req->path_info;
     $req->env->{'tt.vars'}->{'request'} = $req;
-    
+
     my $tpl = $self->{$code};
     my $res = $self->process_template( $tpl, $code, $req->env->{'tt.vars'} );
 
@@ -315,6 +315,10 @@ sub _handle_template {
 1;
 
 __END__
+
+=head1 NAME
+
+    Plack::Middleware::TemplateToolkit - serve a pages via Template Toolkit
 
 =head1 SYNOPSIS
 
@@ -475,7 +479,7 @@ environment.
 
 Specifies an error template that is processed when a file was not found (404)
 or on server error (500). The template variables C<error> with an error message,
-C<path> with the request path, and C<request> with the request objects are set 
+C<path> with the request path, and C<request> with the request objects are set
 for processing. If an error template count not be found and processed, another
 error with status code 500 is returned, possibly also as template.
 
